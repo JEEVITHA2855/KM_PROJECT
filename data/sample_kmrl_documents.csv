@@ -39,3 +39,6 @@ document_id,text,severity,department
 38,"New safety protocols implemented after last month's incident. All staff briefed on updated procedures.",Medium,Safety
 39,"Pension fund contribution arrears for retired employees. Finance department to clear dues immediately.",High,Finance
 40,"Community outreach program successful. Local schools visited Metro facilities as part of awareness drive.",Low,HR
+41,"Emergency brake triggered in Train KMRL-108 near Changampuzha Park. Cause: Obstacle on track. Track team dispatched.",High,Operations
+42,"Signal cable theft reported at MG Road station. Train services disrupted. Police investigation initiated.",High,Safety
+43,"Routine inspection completed for elevator systems. All equipment functioning within normal parameters.",Low,Operations

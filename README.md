@@ -1,4 +1,4 @@
-# KMRL Alert Detection System 🚨
+# KMRL Alert Detection System 
 
 **Smart ML-powered replacement for traditional stopword-based alerts**
 
@@ -7,23 +7,38 @@ This system automatically detects alerts in KMRL documents by classifying them i
 - **Severity**: Critical, High, Medium, Low  
 - **Department**: Safety, Operations, Finance, HR
 
+## 🌐 **NEW: Web Dashboard Available!**
+```bash
+cd web_app
+python app.py
+# Open: http://localhost:5000
+```
+**Features:** Real-time analysis, confidence scores, alert history, performance analytics
+
 ## 🚀 Quick Demo
 
-### Option 1: Interactive Jupyter Notebook (Recommended)
+### Option 1: **Web Interface** (Recommended for Stakeholders)
+```bash
+cd web_app
+python app.py
+```
+**Perfect for live demonstrations with professional UI!**
+
+### Option 2: Interactive Jupyter Notebook
 ```bash
 cd notebooks
 jupyter notebook KMRL_Alert_Detection_Demo.ipynb
 ```
-**Perfect for team presentations with visualizations!**
+**Great for technical deep-dives with visualizations**
 
-### Option 2: Command Line Demo
+### Option 3: Command Line Demo
 ```bash
 cd scripts
 python demo.py
 ```
 **Shows real-time processing and comparison with stopwords**
 
-### Option 3: Train from Scratch
+### Option 4: Train from Scratch
 ```bash
 cd scripts
 python train_model.py
