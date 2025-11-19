@@ -1,0 +1,41 @@
+document_id,text,severity,department
+1,"Urgent safety violation reported at Metro Station Aluva. Immediate evacuation required due to structural damage in Platform 2. All train services suspended.",Critical,Safety
+2,"Monthly financial report shows 15% increase in revenue compared to last quarter. Operations running smoothly across all stations.",Low,Finance
+3,"Staff shortage in ticketing department at Kaloor station. Need to deploy additional personnel during peak hours to avoid passenger congestion.",High,Operations
+4,"Annual safety training session scheduled for all employees next month. Mandatory attendance for all operational staff.",Medium,HR
+5,"Emergency brake failure reported in Train KM-101. Train has been taken out of service for immediate maintenance.",Critical,Safety
+6,"New cleaning equipment procured for all stations. Implementation to begin next week with proper staff training.",Low,Operations
+7,"Passenger complaint regarding overcrowding during evening rush hours. Need immediate action to improve crowd management.",High,Operations
+8,"Budget allocation approved for station modernization project. Work to commence in Q4 2025.",Medium,Finance
+9,"Fire safety system malfunction detected at Ernakulam South station. Fire department notified and station partially evacuated.",Critical,Safety
+10,"Employee wellness program launch scheduled for next month. All departments to participate in health screening.",Low,HR
+11,"Signal failure at Edappally junction causing 30-minute delays. Technical team dispatched for immediate repair.",High,Operations
+12,"Annual audit report submitted to government authorities. Minor compliance issues identified and corrective measures implemented.",Medium,Finance
+13,"Air conditioning system breakdown in multiple coaches. Passenger comfort compromised during peak summer season.",High,Operations
+14,"New recruitment drive initiated to fill vacant positions in security department. Applications accepted until month end.",Medium,HR
+15,"Power outage at Companyvadi station due to transformer failure. Emergency power backup activated.",High,Operations
+16,"Quarterly performance review shows improvement in on-time performance by 8%. Congratulations to all operational staff.",Low,Operations
+17,"Medical emergency at Kalamassery station. Ambulance called and passenger provided immediate first aid.",High,Safety
+18,"Technology upgrade completed for automatic ticket vending machines. New features include multilingual support.",Low,Operations
+19,"Strike notice received from employees union regarding salary negotiations. Management meeting scheduled for resolution.",Critical,HR
+20,"Platform extension work at Aluva station completed ahead of schedule. Passenger capacity increased by 40%.",Low,Operations
+21,"Security threat assessment report indicates need for additional CCTV cameras at key stations.",High,Safety
+22,"Revenue collection target exceeded by 12% this quarter. Special recognition for finance team performance.",Low,Finance
+23,"Monsoon preparedness drill conducted successfully. All emergency protocols tested and validated.",Medium,Safety
+24,"Customer satisfaction survey results show 85% positive feedback. Areas for improvement identified in cleanliness.",Medium,Operations
+25,"Train derailment incident at maintenance yard. No casualties reported but investigation required immediately.",Critical,Safety
+26,"Energy consumption reduced by 20% through LED lighting installation. Significant cost savings achieved.",Low,Finance
+27,"New mobile app launched for real-time train tracking. Positive response from passengers in beta testing.",Low,Operations
+28,"Unauthorized vendor activity reported near station premises. Security team to take immediate action.",Medium,Safety
+29,"Staff overtime costs exceeding budget limits. Need immediate review of work schedules and resource allocation.",High,Finance
+30,"Environmental clearance obtained for new Metro line extension. Construction planning phase initiated.",Low,Operations
+31,"Passenger fell on tracks at Edappally station during rush hour. Emergency response protocol activated immediately.",Critical,Safety
+32,"Annual maintenance contract renewed with cleaning service providers. Enhanced hygiene standards to be implemented.",Low,Operations
+33,"IT system vulnerability identified during security audit. Immediate patching required to prevent data breach.",Critical,Operations
+34,"Employee training completion rate at 95%. Remaining staff to complete mandatory certifications this week.",Medium,HR
+35,"Lost baggage complaints increased by 25% this month. Need to strengthen baggage handling procedures.",Medium,Operations
+36,"Electrical short circuit at Kaloor station control room. Technical team working on emergency repairs.",High,Operations
+37,"Customer service helpline receiving increased complaints about ticket booking system delays.",Medium,Operations
+38,"New safety protocols implemented after last month's incident. All staff briefed on updated procedures.",Medium,Safety
+39,"Pension fund contribution arrears for retired employees. Finance department to clear dues immediately.",High,Finance
+40,"Community outreach program successful. Local schools visited Metro facilities as part of awareness drive.",Low,HR
