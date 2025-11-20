@@ -52,23 +52,7 @@ def store_alert_history(prediction_result):
 @app.route('/')
 def index():
     """Main dashboard page"""
-    # Create stats for the template based on keyword system
-    stats = {
-        'total_docs': 240,  # Total keywords
-        'alert_rate': 35.4,  # Percentage of high/critical keywords
-        'severity_distribution': {
-            'Critical': 28,
-            'High': 32, 
-            'Medium': 26,
-            'Low': 25
-        },
-        'department_distribution': {
-            'Operations': 25,
-            'Maintenance': 25,
-            'Safety': 26
-        }
-    }
-    return render_template('index.html', stats=stats)
+    return render_template('index.html')
 
 @app.route('/comparison')
 def comparison():
@@ -78,58 +62,7 @@ def comparison():
 @app.route('/analytics')
 def analytics():
     """Analytics page showing alert history and trends"""
-    # Generate analytics data based on alert history
-    total_alerts = len(alert_history)
-    
-    # Count severity distribution
-    severity_counts = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
-    department_counts = {'operations': 0, 'maintenance': 0, 'safety': 0}
-    confidence_scores = []
-    
-    for alert in alert_history:
-        severity = alert.get('severity', 'low').lower()
-        department = alert.get('department', 'operations').lower()
-        confidence = alert.get('confidence', 0)
-        
-        if severity in severity_counts:
-            severity_counts[severity] += 1
-        if department in department_counts:
-            department_counts[department] += 1
-        confidence_scores.append(confidence)
-    
-    # Calculate averages
-    avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
-    high_priority_count = severity_counts['critical'] + severity_counts['high']
-    alert_rate = (high_priority_count / total_alerts * 100) if total_alerts > 0 else 0
-    
-    analytics_data = {
-        'total_alerts': total_alerts,
-        'severity_distribution': severity_counts,
-        'department_distribution': department_counts,
-        'avg_confidence': avg_confidence,
-        'alert_rate': alert_rate,
-        'recent_alerts': alert_history[-10:] if alert_history else [],
-        'high_priority_count': high_priority_count
-    }
-    
-    return render_template('analytics.html', analytics=analytics_data)
-
-@app.route('/demo_documents')
-def demo_documents():
-    """Return demo documents for testing the keyword classifier"""
-    demo_docs = [
-        "Emergency brake triggered in Train KMRL-108 due to obstacle on track at Kaloor station",
-        "Routine maintenance check completed on overhead contact system at depot workshop",
-        "Signal failure detected at Ernakulam South station, delays expected on Blue Line",
-        "Passenger announcement for train departure from Aluva platform 2 scheduled at 14:30",
-        "Fire detected in depot workshop, evacuation in progress, emergency services notified",
-        "Minor noise reported from wheel assembly during routine inspection at maintenance facility",
-        "Power supply disruption reported in overhead contact wire between Edapally and Changampuzha",
-        "Security alert: unauthorized entry detected in restricted area near control room",
-        "Medical emergency on train KMRL-205, first aid provided to passenger at MG Road station",
-        "Scheduled cleaning of platform areas completed at all stations during night shift"
-    ]
-    return jsonify(demo_docs)
+    return render_template('analytics.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -290,3 +223,181 @@ if __name__ == '__main__':
         app.run(debug=True, host='0.0.0.0', port=5000)
     else:
         print("❌ Failed to load keyword classifier. Please check your installation.")
+                print("Enhanced models not found, trying basic models...")
+                # Try loading basic models with enhanced classifier
+                try:
+                    # Load basic models but use enhanced classifier structure
+                    from train_model import KMRLAlertClassifier as BasicClassifier
+                    basic_classifier = BasicClassifier()
+                    basic_classifier.load_models("../models")
+                    classifier = basic_classifier
+                    print(f"✅ Basic model loaded with enhanced classifier!")
+                    return True
+                except:
+                    return False
+        else:
+            classifier.load_models("../models")
+            print(f"✅ Basic model loaded successfully!")
+            return True
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        return False
+
+def train_model_if_needed():
+    """Train model if not available"""
+    global classifier
+    try:
+        from train_model import main
+        classifier = main()
+        return True
+    except Exception as e:
+        print(f"Error training model: {e}")
+        return False
+
+@app.route('/')
+def index():
+    """Main dashboard page"""
+    # Load sample data for statistics (try enhanced dataset first)
+    try:
+        df = pd.read_csv('../data/enhanced_kmrl_documents.csv')
+        dataset_type = "Enhanced"
+    except:
+        try:
+            df = pd.read_csv('../data/sample_kmrl_documents.csv')
+            dataset_type = "Basic"
+        except:
+            df = None
+            dataset_type = "None"
+    
+    if df is not None:
+        stats = {
+            'total_docs': len(df),
+            'severity_distribution': df['severity'].value_counts().to_dict(),
+            'department_distribution': df['department'].value_counts().to_dict(),
+            'alert_rate': ((df['severity'] == 'Critical') | (df['severity'] == 'High')).mean() * 100,
+            'dataset_type': dataset_type,
+            'model_type': MODEL_TYPE
+        }
+    else:
+        stats = {
+            'total_docs': 0, 
+            'severity_distribution': {}, 
+            'department_distribution': {}, 
+            'alert_rate': 0,
+            'dataset_type': dataset_type,
+            'model_type': MODEL_TYPE
+        }
+    
+    return render_template('index.html', stats=stats, alert_history=alert_history[-10:])
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    """Process document and return prediction"""
+    global classifier, alert_history
+    
+    # Ensure model is loaded
+    if classifier is None:
+        if not load_model():
+            if not train_model_if_needed():
+                return jsonify({'error': 'Failed to load or train model'})
+    
+    data = request.json
+    document_text = data.get('text', '')
+    
+    if not document_text.strip():
+        return jsonify({'error': 'Please enter document text'})
+    
+    try:
+        # Get prediction
+        result = classifier.predict(document_text)
+        
+        # Add timestamp
+        result['timestamp'] = datetime.now().strftime('%H:%M:%S')
+        result['date'] = datetime.now().strftime('%Y-%m-%d')
+        
+        # Add to history
+        alert_entry = {
+            'id': len(alert_history) + 1,
+            'text': document_text[:100] + '...' if len(document_text) > 100 else document_text,
+            'severity': result['severity'],
+            'department': result['department'],
+            'alert_required': result['alert_required'],
+            'timestamp': result['timestamp'],
+            'severity_confidence': result['severity_confidence'],
+            'department_confidence': result['department_confidence']
+        }
+        alert_history.append(alert_entry)
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        return jsonify({'error': f'Prediction failed: {str(e)}'})
+
+@app.route('/demo_documents')
+def get_demo_documents():
+    """Get sample documents for quick testing"""
+    demo_docs = [
+        "Urgent fire emergency at Aluva station. All passengers evacuated immediately.",
+        "Monthly financial report shows steady revenue growth across all stations.", 
+        "Signal malfunction causing severe delays. Technical team working on repairs.",
+        "New safety training program launched for all operational staff members.",
+        "Emergency brake failure reported in Train KM-101. Immediate maintenance required.",
+        "Budget allocation approved for station modernization project in Q4 2025.",
+        "Power outage at Companyvadi station due to transformer failure detected.",
+        "Customer satisfaction survey results show 85% positive feedback received."
+    ]
+    return jsonify(demo_docs)
+
+@app.route('/analytics')
+def analytics():
+    """Analytics dashboard"""
+    if not alert_history:
+        return render_template('analytics.html', analytics_data={})
+    
+    # Calculate analytics
+    total_processed = len(alert_history)
+    alerts_triggered = sum(1 for entry in alert_history if entry['alert_required'])
+    alert_rate = (alerts_triggered / total_processed * 100) if total_processed > 0 else 0
+    
+    # Severity distribution
+    severity_counts = {}
+    department_counts = {}
+    for entry in alert_history:
+        sev = entry['severity']
+        dept = entry['department']
+        severity_counts[sev] = severity_counts.get(sev, 0) + 1
+        department_counts[dept] = department_counts.get(dept, 0) + 1
+    
+    analytics_data = {
+        'total_processed': total_processed,
+        'alerts_triggered': alerts_triggered,
+        'alert_rate': round(alert_rate, 1),
+        'severity_distribution': severity_counts,
+        'department_distribution': department_counts,
+        'recent_alerts': [entry for entry in alert_history[-20:] if entry['alert_required']]
+    }
+    
+    return render_template('analytics.html', analytics_data=analytics_data)
+
+@app.route('/comparison')
+def comparison():
+    """Comparison with traditional approach"""
+    return render_template('comparison.html')
+
+if __name__ == '__main__':
+    print("🚀 Starting KMRL Alert Detection Web UI...")
+    print("Loading model...")
+    
+    if not load_model():
+        print("Model not found. Training new model...")
+        if train_model_if_needed():
+            print("✅ Model trained successfully!")
+        else:
+            print("❌ Failed to train model. Some features may not work.")
+    else:
+        print("✅ Model loaded successfully!")
+    
+    print("\n🌐 Open your browser and go to: http://localhost:5000")
+    print("Press Ctrl+C to stop the server")
+    
+    app.run(debug=True, host='0.0.0.0', port=5000)

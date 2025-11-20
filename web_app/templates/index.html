@@ -6,32 +6,157 @@
     <title>KMRL Alert Detection System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        :root { --kmrl-blue: #1e3a8a; }
-
-        body {
-            background: #f4f6fb;
-            min-height: 100vh;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-            color: #0f172a;
+        :root { 
+            --kmrl-blue: #1e3a8a;
+            --kmrl-light: #3b82f6;
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-success: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --gradient-danger: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            --shadow-cute: 0 10px 30px rgba(0,0,0,0.1);
+            --shadow-hover: 0 15px 40px rgba(0,0,0,0.15);
         }
 
-        .main-card { background: #fff; border-radius: 12px; box-shadow: 0 8px 24px rgba(15,23,42,0.06); margin: 20px 0; padding: 20px; }
+        body {
+            background: #f8fafc;
+            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #2d3748;
+        }
 
-        .stat-card { background: #fff; border-radius: 10px; padding: 14px; box-shadow: 0 6px 18px rgba(15,23,42,0.04); }
+        .main-card { 
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            margin: 20px 0;
+            padding: 24px;
+            border: 1px solid #e2e8f0;
+        }
 
-        .demo-btn { background: var(--kmrl-blue); color: #fff; border: none; padding: 8px 12px; border-radius: 8px; margin: 3px; }
+        .stat-card { 
+            background: linear-gradient(145deg, #ffffff, #f1f5f9);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
 
-        .confidence-bar { height: 8px; background: #e6e9ef; border-radius: 4px; overflow: hidden; margin-top: 8px; }
-        .confidence-fill { height: 100%; background: linear-gradient(90deg,#16a34a,#f59e0b,#ef4444); transition: width 0.3s ease; }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.12);
+        }
+
+        .demo-btn { 
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin: 4px;
+            font-weight: 500;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .demo-btn:hover {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+        }
+
+        .analyze-btn {
+            background: #3b82f6;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .analyze-btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .clear-btn {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 24px;
+            color: #64748b;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .clear-btn:hover {
+            background: #ef4444;
+            color: white;
+            border-color: #ef4444;
+        }
+
+        .confidence-bar { 
+            height: 8px;
+            background: #f1f5f9;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .confidence-fill { 
+            height: 100%;
+            background: #3b82f6;
+            transition: width 0.5s ease;
+            border-radius: 4px;
+        }
+
+        .prediction-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid #e2e8f0;
+        }
+
+        .badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-control {
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            padding: 12px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            background: white;
+        }
+
+        .form-control:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            outline: none;
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light" style="background-color:#ffffff; border-bottom:1px solid #eef2f7;">
+    <nav class="navbar navbar-expand-lg" style="background: white; border-bottom: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
         <div class="container">
-            <a class="navbar-brand" href="/" style="font-weight:700; color:var(--kmrl-blue);">KMRL Alert Detection</a>
+            <a class="navbar-brand" href="/" style="font-weight:700; color:#1e40af; font-size:20px;">🚇 KMRL Alert Detection</a>
             <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="/analytics">Analytics</a>
-                <a class="nav-link" href="/comparison">Comparison</a>
+                <a class="nav-link" href="/analytics" style="font-weight:500; color:#64748b; margin:0 8px; padding:8px 16px; border-radius:6px; transition: all 0.2s ease;" onmouseover="this.style.background='#f1f5f9'; this.style.color='#1e40af'" onmouseout="this.style.background='transparent'; this.style.color='#64748b'">Analytics</a>
+                <a class="nav-link" href="/comparison" style="font-weight:500; color:#64748b; margin:0 8px; padding:8px 16px; border-radius:6px; transition: all 0.2s ease;" onmouseover="this.style.background='#f1f5f9'; this.style.color='#1e40af'" onmouseout="this.style.background='transparent'; this.style.color='#64748b'">Comparison</a>
             </div>
         </div>
     </nav>
@@ -81,7 +206,7 @@
                     <button type="button" class="btn btn-outline-secondary ms-2" onclick="clearInput()">Clear</button>
                     
                     <!-- Loading Spinner -->
-                    <div class="loading-spinner" id="loadingSpinner">
+                    <div class="loading-spinner" id="loadingSpinner" style="display: none; text-align: center; padding: 20px;">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Analyzing...</span>
                         </div>
@@ -213,41 +338,127 @@
                 if (s === 'low') return 'success';
                 return 'secondary';
             }
-
-            const alertStatus = result.alert_required ?
-                `<div class="alert alert-danger"><strong>ALERT TRIGGERED</strong><br>Notification sent to ${result.department} team</div>` :
-                `<div class="alert alert-info"><strong>No Alert Required</strong><br>Document classified as routine</div>`;
+            
+            // Format matched keywords
+            function formatMatchedKeywords(keywordObj) {
+                if (!keywordObj || typeof keywordObj !== 'object') return 'None';
+                
+                let formatted = [];
+                for (const [category, keywords] of Object.entries(keywordObj)) {
+                    if (keywords && keywords.length > 0) {
+                        formatted.push(`<strong>${category}:</strong> ${keywords.join(', ')}`);
+                    }
+                }
+                return formatted.length > 0 ? formatted.join('<br>') : 'None';
+            }
+            
+            // Format keyword scores
+            function formatScores(scoreObj) {
+                if (!scoreObj || typeof scoreObj !== 'object') return 'None';
+                
+                let formatted = [];
+                for (const [category, score] of Object.entries(scoreObj)) {
+                    formatted.push(`${category}: ${score.toFixed(1)}`);
+                }
+                return formatted.join('<br>');
+            }
 
             const sevBadge = severityToBadge(result.severity);
-            const confidenceWidth = (result.severity_confidence * 100);
-            const deptConfidenceWidth = (result.department_confidence * 100);
+            const confidenceWidth = (result.confidence * 100);
+            
+            // Keyword-based alert status
+            const alertStatus = result.confidence > 0.7 ?
+                `<div class="alert alert-success"><strong>HIGH CONFIDENCE DETECTION</strong><br>Keywords clearly indicate ${result.severity} severity for ${result.department} department</div>` :
+                result.confidence > 0.4 ?
+                `<div class="alert alert-warning"><strong>MODERATE CONFIDENCE</strong><br>Some relevant keywords detected</div>` :
+                `<div class="alert alert-info"><strong>LOW CONFIDENCE</strong><br>Few or no specific keywords found</div>`;
 
-            const html = `
-                <h5>Analysis Results</h5>
+            let html = `
+                <h5>🔍 Keyword-Based Analysis Results</h5>
                 ${alertStatus}
 
                 <div class="row">
                     <div class="col-md-6">
                         <h6>Severity Classification</h6>
-                        <span class="badge bg-${sevBadge} mb-2">${result.severity}</span>
+                        <span class="badge bg-${sevBadge} mb-2">${result.severity.toUpperCase()}</span>
                         <div class="confidence-bar">
                             <div class="confidence-fill" style="width: ${confidenceWidth}%"></div>
                         </div>
-                        <small class="text-muted">Confidence: ${(result.severity_confidence * 100).toFixed(1)}%</small>
+                        <small class="text-muted">Confidence: ${(result.confidence * 100).toFixed(1)}%</small>
                     </div>
 
                     <div class="col-md-6">
                         <h6>Department Assignment</h6>
-                        <span class="badge bg-primary mb-2">${result.department}</span>
+                        <span class="badge bg-primary mb-2">${result.department.toUpperCase()}</span>
                         <div class="confidence-bar">
-                            <div class="confidence-fill" style="width: ${deptConfidenceWidth}%"></div>
+                            <div class="confidence-fill" style="width: ${(result.department_confidence * 100)}%"></div>
                         </div>
                         <small class="text-muted">Confidence: ${(result.department_confidence * 100).toFixed(1)}%</small>
                     </div>
                 </div>
+            `;
+            
+            // Display keywords and explanation
+            if (result.matched_keywords) {
+                html += `
+                    <div class="mt-3">
+                        <h6>🔍 Matched Keywords:</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Severity Keywords:</strong><br>
+                                <small class="text-muted">${formatMatchedKeywords(result.matched_keywords.severity)}</small>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Department Keywords:</strong><br>
+                                <small class="text-muted">${formatMatchedKeywords(result.matched_keywords.department)}</small>
+                            </div>
+                        </div>
+                        ${result.matched_keywords.context ? `
+                            <div class="mt-2">
+                                <strong>Context Keywords:</strong><br>
+                                <small class="text-muted">${formatMatchedKeywords(result.matched_keywords.context)}</small>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            if (result.explanation) {
+                html += `
+                    <div class="mt-3">
+                        <h6>💡 Analysis Explanation:</h6>
+                        <p class="text-muted"><small>${result.explanation}</small></p>
+                    </div>
+                `;
+            }
+            
+            // Show keyword scores
+            if (result.severity_scores || result.department_scores) {
+                html += `
+                    <div class="mt-3">
+                        <h6>📊 Keyword Scores:</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Severity Scores:</strong><br>
+                                <small class="text-muted">${formatScores(result.severity_scores)}</small>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Department Scores:</strong><br>
+                                <small class="text-muted">${formatScores(result.department_scores)}</small>
+                            </div>
+                        </div>
+                        ${result.context_boost ? `
+                            <div class="mt-2">
+                                <strong>Context Boost:</strong> <span class="text-success">+${result.context_boost.toFixed(1)}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
 
+            html += `
                 <div class="mt-3 p-2 bg-light rounded">
-                    <small class="text-muted">Processed at ${result.timestamp} | AI Classification</small>
+                    <small class="text-muted">Processed at ${result.timestamp} | Keyword-Based Detection</small>
                 </div>
             `;
 

@@ -52,23 +52,7 @@ def store_alert_history(prediction_result):
 @app.route('/')
 def index():
     """Main dashboard page"""
-    # Create stats for the template based on keyword system
-    stats = {
-        'total_docs': 240,  # Total keywords
-        'alert_rate': 35.4,  # Percentage of high/critical keywords
-        'severity_distribution': {
-            'Critical': 28,
-            'High': 32, 
-            'Medium': 26,
-            'Low': 25
-        },
-        'department_distribution': {
-            'Operations': 25,
-            'Maintenance': 25,
-            'Safety': 26
-        }
-    }
-    return render_template('index.html', stats=stats)
+    return render_template('index.html')
 
 @app.route('/comparison')
 def comparison():
@@ -78,58 +62,7 @@ def comparison():
 @app.route('/analytics')
 def analytics():
     """Analytics page showing alert history and trends"""
-    # Generate analytics data based on alert history
-    total_alerts = len(alert_history)
-    
-    # Count severity distribution
-    severity_counts = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
-    department_counts = {'operations': 0, 'maintenance': 0, 'safety': 0}
-    confidence_scores = []
-    
-    for alert in alert_history:
-        severity = alert.get('severity', 'low').lower()
-        department = alert.get('department', 'operations').lower()
-        confidence = alert.get('confidence', 0)
-        
-        if severity in severity_counts:
-            severity_counts[severity] += 1
-        if department in department_counts:
-            department_counts[department] += 1
-        confidence_scores.append(confidence)
-    
-    # Calculate averages
-    avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
-    high_priority_count = severity_counts['critical'] + severity_counts['high']
-    alert_rate = (high_priority_count / total_alerts * 100) if total_alerts > 0 else 0
-    
-    analytics_data = {
-        'total_alerts': total_alerts,
-        'severity_distribution': severity_counts,
-        'department_distribution': department_counts,
-        'avg_confidence': avg_confidence,
-        'alert_rate': alert_rate,
-        'recent_alerts': alert_history[-10:] if alert_history else [],
-        'high_priority_count': high_priority_count
-    }
-    
-    return render_template('analytics.html', analytics=analytics_data)
-
-@app.route('/demo_documents')
-def demo_documents():
-    """Return demo documents for testing the keyword classifier"""
-    demo_docs = [
-        "Emergency brake triggered in Train KMRL-108 due to obstacle on track at Kaloor station",
-        "Routine maintenance check completed on overhead contact system at depot workshop",
-        "Signal failure detected at Ernakulam South station, delays expected on Blue Line",
-        "Passenger announcement for train departure from Aluva platform 2 scheduled at 14:30",
-        "Fire detected in depot workshop, evacuation in progress, emergency services notified",
-        "Minor noise reported from wheel assembly during routine inspection at maintenance facility",
-        "Power supply disruption reported in overhead contact wire between Edapally and Changampuzha",
-        "Security alert: unauthorized entry detected in restricted area near control room",
-        "Medical emergency on train KMRL-205, first aid provided to passenger at MG Road station",
-        "Scheduled cleaning of platform areas completed at all stations during night shift"
-    ]
-    return jsonify(demo_docs)
+    return render_template('analytics.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
