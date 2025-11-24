@@ -1,53 +1,88 @@
-# KMRL Alert Detection System 
+# KMRL Alert Analysis System
 
-**Smart ML-powered replacement for traditional stopword-based alerts**
+**Single-file intelligent alert classification system with search-optimized tagging**
 
-## 🎯 Overview
-This system automatically detects alerts in KMRL documents by classifying them into:
-- **Severity**: Critical, High, Medium, Low  
-- **Department**: Safety, Operations, Finance, HR
+## 🎯 Quick Start
 
-## 🌐 **NEW: Web Dashboard Available!**
 ```bash
-cd web_app
-python app.py
-# Open: http://localhost:5000
+# Install dependencies
+pip install googletrans==4.0.0-rc1
+
+# Interactive mode (default)
+python kmrl_analyzer.py
+
+# Direct analysis with JSON output
+python kmrl_analyzer.py --text "brake failure coach 20" --json
+
+# Process file
+python kmrl_analyzer.py --file alerts.txt --json
 ```
-**Features:** Real-time analysis, confidence scores, alert history, performance analytics
 
-## 🚀 Quick Demo
+## 🌟 Key Features
 
-### Option 1: **Web Interface** (Recommended for Stakeholders)
+- **389 Keywords**: Comprehensive classification engine
+- **Malayalam Translation**: Bidirectional translation support  
+- **Search Tags**: 11-category tag generation for document retrieval
+- **Single File**: All functionality integrated into `kmrl_analyzer.py`
+- **Multiple Modes**: Interactive, batch, direct text, file processing
+- **Database Ready**: JSON output optimized for database integration
+
+## 📊 Sample Output
+
+```json
+{
+  "alert_id": "KMRL_20251124_130519",
+  "severity": "CRITICAL", 
+  "department": "MAINTENANCE",
+  "confidence": 77.8,
+  "priority": "P1_CRITICAL",
+  "search_tags": ["id_20", "critical_maintenance", "tech_brake"],
+  "immediate_action": true,
+  "response_time": "15 minutes",
+  "timestamp": "2025-11-24 13:05:19"
+}
+```
+
+## 📖 Complete Documentation
+
+**👉 See [COMPLETE_DOCUMENTATION.md](./COMPLETE_DOCUMENTATION.md) for:**
+- Detailed usage guide
+- All command line options  
+- Search tag classification system
+- Integration examples
+- Technical specifications
+- Performance metrics
+- Troubleshooting guide
+
+## 🗂️ Project Files
+
+- **`kmrl_analyzer.py`** - Main application (single integrated file)
+- **`requirements.txt`** - Python dependencies
+- **`COMPLETE_DOCUMENTATION.md`** - Comprehensive guide
+- Legacy files: `USAGE_GUIDE.md`, `REPOSITORY_DOCUMENTATION.md`, `JSON_API_USAGE.md`
+
+## 🚀 Quick Examples
+
 ```bash
-cd web_app
-python app.py
-```
-**Perfect for live demonstrations with professional UI!**
+# Interactive mode
+python kmrl_analyzer.py
 
-### Option 2: Interactive Jupyter Notebook
-```bash
-cd notebooks
-jupyter notebook KMRL_Alert_Detection_Demo.ipynb
-```
-**Great for technical deep-dives with visualizations**
+# Piped input 
+echo "emergency at station" | python kmrl_analyzer.py --json
 
-### Option 3: Command Line Demo
-```bash
-cd scripts
-python demo.py
-```
-**Shows real-time processing and comparison with stopwords**
+# File processing
+python kmrl_analyzer.py --file alerts.txt --json
 
-### Option 4: Train from Scratch
-```bash
-cd scripts
-python train_model.py
+# Batch processing
+python kmrl_analyzer.py --batch
+
+# With translation
+python kmrl_analyzer.py --text "എമർജൻസി" --translate --json
 ```
 
-## 📂 Project Structure
-```
-KM_PROJECT/
-├── data/
+---
+
+**Version**: 3.0 | **Updated**: November 24, 2025 | **Status**: Production Ready
 │   ├── sample_kmrl_documents.csv    # Sample training data
 │   └── labeling_guidelines.md       # How to label new data
 ├── scripts/
