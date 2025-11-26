@@ -36,58 +36,62 @@ python kmrl_analyzer.py --text "Emergency brake failure" --json
   "confidence": 82.5,
   "priority": "P1_CRITICAL",
   "search_tags": ["brake", "emergency", "safety"],
-  "immediate_action": true,
-  "response_time": "15 minutes",
-  "model_used": "pure_ml",
-  "multilingual": true
-}
-```
+  ## Important Notes
 
-## 💻 Usage
+  - The tool no longer reports internal processing timing fields (e.g., `processing_time_ms`).
+  - The `--benchmark` option and timing output were removed to keep JSON output minimal and consistent for downstream systems.
 
-```bash
-# Interactive mode
-python kmrl_analyzer.py
+  ## 📊 Example Minimal JSON Output
 
-# Direct text analysis
-python kmrl_analyzer.py --text "Emergency brake failure detected"
+  ```json
+  {
+    "alert_id": "KMRL_ML_20251126_133048",
+    "severity": "INFORMATIONAL",
+    "department": "SAFETY",
+    "alert_type": "SAFETY",
+    "confidence": 55.7,
+    "priority": "P4_LOW",
+    "search_tags": ["tech_brake"],
+    "immediate_action": false,
+    "response_time": "24 hours",
+    "timestamp": "2025-11-26 13:30:48",
+    "model_used": "pure_ml",
+    "ml_available": true,
+    "multilingual": true
+  }
+  ```
 
-# JSON output for APIs
-python kmrl_analyzer.py --text "Regulatory deadline expires in 5 days" --json
+  ## 💻 Usage
 
-# File processing
-python kmrl_analyzer.py --file alerts.txt --json
+  ```bash
+  # Interactive mode
+  python kmrl_analyzer.py
 
-# Batch processing
-python kmrl_analyzer.py --batch
-```
+  # Direct text analysis
+  python kmrl_analyzer.py --text "Emergency brake failure detected" --json
 
-## 🏷️ Classification
+  # Minimal output (compact fields)
+  python kmrl_analyzer.py --text "Emergency brake failure" --minimal --json
 
-**Severity**: `informational` | `low` | `medium` | `high`
+  # File processing
+  python kmrl_analyzer.py --file alerts.txt --json
 
-**Alert Types**: `safety` | `regulatory` | `finance` | `legal` | `service_disruption` | `maintenance` | `operations`
+  # Batch processing
+  python kmrl_analyzer.py --batch
+  ```
 
-**Departments**: `operations` | `maintenance` | `safety` | `electrical` | `hr` | `finance` | `procurement`
+  ## ⚡ Fast vs Accurate Modes
 
-## 🤖 Models
+  - By default the analyzer runs in **accurate** mode (larger multilingual models).
+  - Use **fast** mode for lower memory and faster inference (smaller models + rule-based NER).
 
-- **Embeddings**: `paraphrase-multilingual-MiniLM-L12-v2` (384 dims)
-- **Classifier**: `distilbert-base-multilingual-cased` 
-- **NER**: `dbmdz/bert-large-cased-finetuned-conll03-english`
-- **Memory**: ~2.3GB total
+  Set via environment variable (PowerShell):
+  ```powershell
+  $env:KMRL_FAST_MODE = "true"
+  python kmrl_analyzer.py --text "Example alert" --json
+  ```
 
-## ⚡ Performance
-
-- **Speed**: 200-500ms (CPU), 50-100ms (GPU)
-- **Accuracy**: 85-95%
-- **Languages**: 100+
-- **File Size**: 45KB, 1000+ lines
-
----
-
-**Single file. Pure ML. Production ready.** 🚀
-
-**Ready for immediate deployment! Contact the AI team for integration support.**
-
-💡 **Pro Tip**: Start with the Jupyter notebook demo - it's the most impressive for stakeholders!
+  Or use the CLI flag (temporary for that run):
+  ```bash
+  python kmrl_analyzer.py --fast --text "Example alert" --json
+  ```
