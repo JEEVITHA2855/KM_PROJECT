@@ -60,6 +60,11 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 # ML and Deep Learning Dependencies
 # =================================
+
+# Performance Configuration
+FAST_MODE = os.getenv('KMRL_FAST_MODE', 'false').lower() == 'true'
+CPU_ONLY = os.getenv('CUDA_VISIBLE_DEVICES') == ''
+
 try:
     import torch
     import numpy as np
@@ -71,8 +76,13 @@ try:
     )
     from sentence_transformers import SentenceTransformer
     
+    # Set device preference
+    if CPU_ONLY:
+        torch.set_num_threads(2)  # Limit CPU threads for better performance
+    
     ML_AVAILABLE = True
-    print("🤖 ML libraries loaded successfully!")
+    performance_mode = "⚡ FAST" if FAST_MODE else "🎯 ACCURATE"
+    print(f"🤖 ML libraries loaded successfully! Mode: {performance_mode}")
     
 except ImportError as e:
     print(f"❌ ML libraries not available: {e}")
@@ -135,26 +145,32 @@ class MLModelManager:
     
     def _initialize_models(self) -> None:
         """
-        Initialize all ML models with comprehensive error handling.
+        Initialize all ML models with performance optimization.
         
-        Downloads and loads:
-        1. Multilingual sentence transformer (384 dims)
-        2. DistilBERT multilingual classifier
-        3. BERT-Large NER pipeline
+        Fast Mode: Uses smaller models for speed (~100-200ms inference)
+        Accurate Mode: Uses full models for quality (~200-500ms inference)
         
         Raises:
             RuntimeError: If critical models fail to load
         """
         try:
-            print("🔄 Loading multilingual ML models...")
+            mode = "fast" if FAST_MODE else "accurate"
+            print(f"🔄 Loading multilingual ML models ({mode} mode)...")
             
-            # 1. Multilingual sentence transformer for semantic search
-            print("📥 Loading paraphrase-multilingual-MiniLM-L12-v2...")
-            self.sentence_transformer = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+            # 1. Choose sentence transformer based on mode
+            if FAST_MODE:
+                # Faster, smaller model (23MB vs 471MB)
+                print("⚡ Loading all-MiniLM-L6-v2 (fast mode)...")
+                self.sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
+                model_name = "distilbert-base-uncased"  # Faster, English-only
+            else:
+                # Current multilingual model (471MB)
+                print("🌐 Loading paraphrase-multilingual-MiniLM-L12-v2...")
+                self.sentence_transformer = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+                model_name = "distilbert-base-multilingual-cased"
             
-            # 2. Multilingual DistilBERT as main classifier
-            print("📥 Loading distilbert-base-multilingual-cased...")
-            model_name = "distilbert-base-multilingual-cased"
+            # 2. Load main classifier
+            print(f"📥 Loading {model_name}...")
             
             # Initialize tokenizer and model for classification
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -170,29 +186,37 @@ class MLModelManager:
                 ignore_mismatched_sizes=True
             ).to(self.device)
             
-            # 3. Light NER pipeline for entity extraction
-            print("📥 Loading lightweight NER model...")
-            try:
-                self.ner_pipeline = pipeline(
-                    "ner", 
-                    model="dbmdz/bert-large-cased-finetuned-conll03-english",
-                    aggregation_strategy="simple",
-                    device=0 if torch.cuda.is_available() else -1
-                )
-            except Exception as ner_error:
-                print(f"⚠️  NER model failed, using rule-based fallback: {ner_error}")
+            # 3. NER pipeline (optional in fast mode)
+            if FAST_MODE:
+                print("⚡ Skipping NER model (fast mode - using rules only)...")
                 self.ner_pipeline = None
+            else:
+                print("🔍 Loading lightweight NER model...")
+                try:
+                    self.ner_pipeline = pipeline(
+                        "ner", 
+                        model="dbmdz/bert-large-cased-finetuned-conll03-english",
+                        aggregation_strategy="simple",
+                        device=0 if torch.cuda.is_available() else -1
+                    )
+                except Exception as ner_error:
+                    print(f"⚠️  NER model failed, using rule-based fallback: {ner_error}")
+                    self.ner_pipeline = None
             
             # 4. Setup classification layers
             self._setup_multi_label_classifier()
             
             self.models_loaded = True
             
-            # Success summary
-            print("✅ Multilingual ML models loaded successfully!")
-            print(f"🌐 Semantic model: paraphrase-multilingual-MiniLM-L12-v2 (384 dims)")
-            print(f"🎯 Main classifier: DistilBERT Multilingual")
-            print(f"🔍 NER: {'BERT-Large' if self.ner_pipeline else 'Rule-based fallback'}")
+            # Performance summary
+            total_size = "~500MB" if FAST_MODE else "~2.3GB"
+            speed = "100-200ms" if FAST_MODE else "200-500ms"
+            
+            print("✅ ML models loaded successfully!")
+            print(f"🎯 Mode: {'Fast' if FAST_MODE else 'Accurate'} | Size: {total_size} | Speed: {speed}")
+            print(f"🌐 Semantic model: {'MiniLM-L6-v2' if FAST_MODE else 'MiniLM-L12-v2'}")
+            print(f"🎯 Main classifier: {model_name.replace('-', ' ').title()}")
+            print(f"🔍 NER: {'Rule-based only' if FAST_MODE else 'BERT-Large + Rules'}")
             
         except Exception as e:
             print(f"❌ Critical error loading ML models: {e}")
@@ -660,7 +684,7 @@ class AdvancedKMRLAnalyzer:
         
         if minimal:
             # Minimal output for database/JSON use
-            return {
+            result = {
                 "alert_id": alert_id,
                 "severity": final_prediction['severity'].upper(),
                 "department": final_prediction['department'].upper(),
@@ -675,6 +699,7 @@ class AdvancedKMRLAnalyzer:
                 "ml_available": self.ml_manager.models_loaded,
                 "multilingual": True
             }
+            return result
         
         # Full comprehensive result
         return {
@@ -931,6 +956,7 @@ Examples:
     parser.add_argument('--file', help='File containing text to analyze')
     parser.add_argument('--json', action='store_true', help='Output in JSON format')
     parser.add_argument('--debug', action='store_true', help='Enable debug output')
+    parser.add_argument('--fast', action='store_true', help='Use fast mode (smaller models, faster inference)')
     parser.add_argument('--compact', action='store_true', help='Compact JSON output')
     parser.add_argument('--batch', action='store_true', help='Batch processing mode')
     parser.add_argument('--quiet', action='store_true', help='Minimal output')
@@ -939,6 +965,10 @@ Examples:
     args = parser.parse_args()
     
     # Initialize analyzer
+    # Set fast mode if requested
+    if args.fast:
+        os.environ['KMRL_FAST_MODE'] = 'true'
+    
     analyzer = AdvancedKMRLAnalyzer()
     
     # Check if input is piped (non-interactive)
