@@ -621,6 +621,39 @@ class AdvancedKMRLAnalyzer:
         print(f"🤖 ML Models: {self.ml_manager.models_loaded}")
         print(f"🧠 Advanced NLP: {self.nlp_processor.entity_extractor is not None}")
     
+    def _normalize_severity(self, model_severity: str, confidence: float, risk_score: float = 0.5) -> str:
+        """
+        Normalize model severity output to canonical taxonomy: CRITICAL, HIGH, MEDIUM, LOW.
+        
+        Args:
+            model_severity: Raw severity from ML model
+            confidence: Confidence score (0.0-1.0)
+            risk_score: Risk score from analysis (0.0-1.0)
+        
+        Returns:
+            str: Normalized severity (CRITICAL, HIGH, MEDIUM, or LOW)
+        """
+        severity_lower = model_severity.lower().strip()
+        
+        # Map model labels to canonical taxonomy
+        if severity_lower in ('critical', 'critical_alert'):
+            return 'CRITICAL'
+        
+        if severity_lower in ('high', 'urgent'):
+            # Upgrade to CRITICAL if confidence is very high
+            if confidence >= 0.95 or risk_score >= 0.9:
+                return 'CRITICAL'
+            return 'HIGH'
+        
+        if severity_lower in ('medium', 'moderate', 'warning'):
+            return 'MEDIUM'
+        
+        if severity_lower in ('low', 'informational', 'info', 'minor'):
+            return 'LOW'
+        
+        # Fallback to safe mapping
+        return 'LOW'
+    
     def analyze_comprehensive(self, text: str, minimal: bool = False) -> Dict[str, Any]:
         """
         Perform comprehensive ML-based analysis of alert text.
@@ -684,16 +717,21 @@ class AdvancedKMRLAnalyzer:
         
         if minimal:
             # Minimal output for database/JSON use
+            normalized_severity = self._normalize_severity(
+                final_prediction['severity'],
+                final_prediction['confidence'],
+                0.5
+            )
             result = {
                 "alert_id": alert_id,
-                "severity": final_prediction['severity'].upper(),
+                "severity": normalized_severity,
                 "department": final_prediction['department'].upper(),
                 "alert_type": final_prediction.get('alert_type', 'OPERATIONS').upper(),
                 "confidence": round(final_prediction['confidence'] * 100, 1),
-                "priority": self._get_priority_level(final_prediction['severity'], final_prediction['confidence']),
+                "priority": self._get_priority_level(normalized_severity, final_prediction['confidence']),
                 "search_tags": self._generate_ml_tags(text, nlp_result)[:5],
-                "immediate_action": final_prediction['severity'] in ['high'],
-                "response_time": self._get_response_time(final_prediction['severity']).replace('_', ' '),
+                "immediate_action": normalized_severity in ['HIGH', 'CRITICAL'],
+                "response_time": self._get_response_time(normalized_severity).replace('_', ' '),
                 "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 "model_used": final_prediction.get('model_source', 'hybrid'),
                 "ml_available": self.ml_manager.models_loaded,
@@ -918,19 +956,28 @@ class AdvancedKMRLAnalyzer:
     
     def _get_priority_level(self, severity: str, confidence: float) -> str:
         """Get priority level based on severity and confidence"""
-        if severity == 'high' and confidence > 0.7:
+        severity_upper = severity.upper()
+        if severity_upper == 'CRITICAL':
             return 'P1_CRITICAL'
-        elif severity == 'high' or (severity == 'medium' and confidence > 0.8):
+        elif severity_upper == 'HIGH' and confidence > 0.7:
+            return 'P1_CRITICAL'
+        elif severity_upper == 'HIGH' or (severity_upper == 'MEDIUM' and confidence > 0.8):
             return 'P2_HIGH'
-        elif severity == 'medium' or (severity == 'low' and confidence > 0.7):
+        elif severity_upper == 'MEDIUM' or (severity_upper == 'LOW' and confidence > 0.7):
             return 'P3_MEDIUM'
         else:
             return 'P4_LOW'
     
     def _get_response_time(self, severity: str) -> str:
         """Get estimated response time"""
-        times = {'high': '15_minutes', 'medium': '1_hour', 'low': '4_hours', 'informational': '24_hours'}
-        return times.get(severity, '24_hours')
+        severity_upper = severity.upper()
+        times = {
+            'CRITICAL': '5_minutes',
+            'HIGH': '15_minutes',
+            'MEDIUM': '1_hour',
+            'LOW': '24_hours'
+        }
+        return times.get(severity_upper, '24_hours')
     
 
 
