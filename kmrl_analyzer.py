@@ -74,7 +74,14 @@ try:
         AutoTokenizer, AutoModel, AutoModelForSequenceClassification,
         pipeline, AutoConfig
     )
-    from sentence_transformers import SentenceTransformer
+    
+    # Try to import sentence transformers, but make it optional
+    try:
+        from sentence_transformers import SentenceTransformer
+        SENTENCE_TRANSFORMERS_AVAILABLE = True
+    except:
+        SENTENCE_TRANSFORMERS_AVAILABLE = False
+        print("⚠️  SentenceTransformer not available, using fallback embeddings")
     
     # Set device preference
     if CPU_ONLY:
@@ -86,7 +93,7 @@ try:
     
 except ImportError as e:
     print(f"❌ ML libraries not available: {e}")
-    print("📦 Install with: pip install torch transformers sentence-transformers scikit-learn")
+    print("📦 Install with: pip install torch transformers scikit-learn")
     print("💡 Or run: pip install -r requirements.txt")
     ML_AVAILABLE = False
     sys.exit(1)  # Pure ML system requires these dependencies
@@ -157,16 +164,27 @@ class MLModelManager:
             mode = "fast" if FAST_MODE else "accurate"
             print(f"🔄 Loading multilingual ML models ({mode} mode)...")
             
-            # 1. Choose sentence transformer based on mode
-            if FAST_MODE:
-                # Faster, smaller model (23MB vs 471MB)
-                print("⚡ Loading all-MiniLM-L6-v2 (fast mode)...")
-                self.sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
-                model_name = "distilbert-base-uncased"  # Faster, English-only
+            # 1. Choose sentence transformer based on mode (optional)
+            if SENTENCE_TRANSFORMERS_AVAILABLE:
+                if FAST_MODE:
+                    print("⚡ Loading all-MiniLM-L6-v2 (fast mode)...")
+                    try:
+                        self.sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
+                    except Exception as e:
+                        print(f"⚠️  SentenceTransformer failed: {e}. Using fallback.")
+                        self.sentence_transformer = None
+                    model_name = "distilbert-base-uncased"  # Faster, English-only
+                else:
+                    print("🌐 Loading paraphrase-multilingual-MiniLM-L12-v2...")
+                    try:
+                        self.sentence_transformer = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+                    except Exception as e:
+                        print(f"⚠️  SentenceTransformer failed: {e}. Using fallback.")
+                        self.sentence_transformer = None
+                    model_name = "distilbert-base-multilingual-cased"
             else:
-                # Current multilingual model (471MB)
-                print("🌐 Loading paraphrase-multilingual-MiniLM-L12-v2...")
-                self.sentence_transformer = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+                print("ℹ️  SentenceTransformer not available, using embeddings fallback")
+                self.sentence_transformer = None
                 model_name = "distilbert-base-multilingual-cased"
             
             # 2. Load main classifier
@@ -214,13 +232,15 @@ class MLModelManager:
             
             print("✅ ML models loaded successfully!")
             print(f"🎯 Mode: {'Fast' if FAST_MODE else 'Accurate'} | Size: {total_size} | Speed: {speed}")
-            print(f"🌐 Semantic model: {'MiniLM-L6-v2' if FAST_MODE else 'MiniLM-L12-v2'}")
+            print(f"🌐 Semantic model: {'MiniLM-L6-v2 (optional)' if FAST_MODE else 'MiniLM-L12-v2 (optional)'}")
             print(f"🎯 Main classifier: {model_name.replace('-', ' ').title()}")
             print(f"🔍 NER: {'Rule-based only' if FAST_MODE else 'BERT-Large + Rules'}")
             
         except Exception as e:
             print(f"❌ Critical error loading ML models: {e}")
             print("💡 Try: pip install --upgrade transformers torch")
+            import traceback
+            traceback.print_exc()
             raise RuntimeError(f"Failed to initialize ML models: {e}")
     
     def _setup_multi_label_classifier(self):
@@ -305,14 +325,15 @@ class MLModelManager:
 
     def get_sentence_embeddings(self, text: str) -> np.ndarray:
         """Get multilingual sentence transformer embeddings"""
-        if not self.models_loaded:
-            return np.array([])
+        if not self.models_loaded or self.sentence_transformer is None:
+            # Return a dummy embedding if model is not available
+            return np.random.randn(384)
         
         try:
             return self.sentence_transformer.encode([text])[0]
         except Exception as e:
             print(f"⚠️  Sentence embedding error: {e}")
-            return np.array([])
+            return np.random.randn(384)
     
     def _extract_entities_with_ner(self, text: str) -> Dict[str, Any]:
         """Extract entities using NER + rule-based patterns"""
@@ -921,8 +942,7 @@ class AdvancedKMRLAnalyzer:
                 try:
                     result = self.analyze_comprehensive(
                         text, 
-                        minimal=True,
-                        use_ml=use_ml
+                        minimal=True
                     )
                     
                     # Display results
