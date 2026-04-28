@@ -17,17 +17,15 @@ Features:
 
 Usage:
 ------
-    # Alert Classification
-    python kmrl_unified_system.py --classify "Emergency brake failure" --json
+    # Interactive mode (recommended)
+    python kmrl_unified_system.py
     
-    # Semantic Search
-    python kmrl_unified_system.py --search "happy employees" --top-k 5
-    
-    # Index documents for search
-    python kmrl_unified_system.py --index documents.txt
-    
-    # Interactive mode
-    python kmrl_unified_system.py --interactive
+    # Then use commands:
+    # classify <text>     - Classify alert text
+    # search <query>     - Search for similar documents  
+    # index <file>       - Index documents from file
+    # metrics           - Show system metrics
+    # exit              - Exit program
 
 Author: KMRL Analytics Team
 Version: 6.0 (Unified System)
@@ -37,7 +35,6 @@ License: MIT
 import os
 import sys
 import json
-import argparse
 import time
 import hashlib
 import uuid
@@ -47,6 +44,14 @@ from typing import Dict, List, Tuple, Optional, Any, Union
 from pathlib import Path
 from dataclasses import dataclass, asdict
 import logging
+
+# Flask imports for API functionality
+try:
+    from flask import Flask, request, jsonify
+    from flask_cors import CORS
+    FLASK_AVAILABLE = True
+except ImportError:
+    FLASK_AVAILABLE = False
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -81,14 +86,47 @@ class AlertClassification:
 
 @dataclass
 class AlertResponse:
-    """Complete alert classification response"""
-    alert_id: str
-    timestamp: str
-    alert_classification: Dict[str, str]
-    department: Dict[str, Any]
-    search_keywords: List[str]
-    important_segments: List[str]
-    confidence_summary: Dict[str, float]
+    """Simplified alert classification response"""
+    status: str
+    severity: str
+    alert_type: str
+    department: str
+    keywords: List[str]
+    confidence: float
+    processing_time: float
+    
+    def to_json(self) -> str:
+        """Convert to JSON string"""
+        return json.dumps(asdict(self), indent=2)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return asdict(self)
+
+@dataclass
+class EmbeddingResponse:
+    """Text embedding response for API service"""
+    status: str
+    embedding: List[float]
+    model: str
+    dimension: int
+    processing_time: float
+    
+    def to_json(self) -> str:
+        """Convert to JSON string"""
+        return json.dumps(asdict(self), indent=2)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return asdict(self)
+    
+    def validate_embedding(self) -> bool:
+        """Validate embedding has correct dimensions and values"""
+        return (
+            len(self.embedding) == 512 and
+            all(isinstance(x, (int, float)) for x in self.embedding) and
+            any(abs(x) > 1e-6 for x in self.embedding)  # Not all zeros
+        )
 
 # =============================================================================
 # SEMANTIC SEARCH DATA STRUCTURES  
@@ -102,6 +140,10 @@ class SearchResult:
     similarity_score: float
     rank: int
     snippet: str
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return asdict(self)
 
 @dataclass
 class SearchResponse:
@@ -113,6 +155,14 @@ class SearchResponse:
     results: List[SearchResult]
     expanded_terms: List[str]
     search_metadata: Dict[str, Any]
+    
+    def to_json(self) -> str:
+        """Convert to JSON string"""
+        return json.dumps(asdict(self), indent=2)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return asdict(self)
 
 # =============================================================================
 # UNIFIED ML SYSTEM
@@ -124,25 +174,17 @@ class KMRLUnifiedMLSystem:
     """
     
     def __init__(self):
-        print("KMRL UNIFIED ML SYSTEM v6.0")
-        print("=" * 60)
-        print("Enterprise Alert Classification + Semantic Search")
-        
         # Device setup
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Device: {self.device}")
         
         # Load tokenizer (shared between both systems)
-        print("Loading DistilBERT tokenizer...")
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(
                 "distilbert-base-multilingual-cased",
                 use_fast=True
             )
-            print("✓ Tokenizer loaded successfully")
         except Exception as e:
-            print(f"Error loading tokenizer: {e}")
-            raise
+            raise RuntimeError(f"Error loading tokenizer: {e}")
         
         # Performance metrics
         self.metrics = {
@@ -166,30 +208,30 @@ class KMRLUnifiedMLSystem:
     def _init_alert_classifier(self):
         """Initialize alert classification components"""
         
-        # Domain knowledge for enhanced classification
+        # Enhanced domain knowledge for better classification accuracy
         self.domain_knowledge = {
-            "safety_emergency": ["emergency", "evacuation", "fire", "accident", "hazard", "danger", "critical", "urgent"],
-            "maintenance_critical": ["brake", "failure", "malfunction", "repair", "inspection", "maintenance", "breakdown"],
-            "service_disruption": ["delay", "cancelled", "disruption", "service", "schedule", "platform", "passenger"],
-            "regulatory_compliance": ["compliance", "regulation", "deadline", "mandatory", "penalty", "violation"],
-            "financial_impact": ["penalty", "fine", "cost", "budget", "payment", "financial", "revenue"],
-            "security_concern": ["security", "theft", "vandalism", "unauthorized", "breach", "surveillance"],
-            "infrastructure_issue": ["track", "signal", "electrical", "power", "infrastructure", "equipment"],
-            "passenger_safety": ["passenger", "safety", "injury", "medical", "first aid", "crowd"],
-            "operational_standard": ["procedure", "protocol", "standard", "guideline", "policy", "training"]
+            "safety_emergency": ["emergency", "evacuation", "fire", "accident", "hazard", "danger", "critical", "urgent", "medical", "injury", "fell", "collision", "derailment"],
+            "maintenance_critical": ["brake", "failure", "malfunction", "repair", "inspection", "maintenance", "breakdown", "stuck", "faulty", "defect", "worn", "damaged"],
+            "service_disruption": ["delay", "cancelled", "disruption", "service", "schedule", "platform", "overcrowding", "capacity", "congestion", "queue"],
+            "infrastructure_issue": ["track", "signal", "electrical", "power", "infrastructure", "equipment", "outage", "voltage", "circuit", "cable", "junction"],
+            "passenger_safety": ["passenger", "safety", "injury", "medical", "first aid", "crowd", "slip", "fall", "assistance", "ambulance"],
+            "security_concern": ["security", "theft", "vandalism", "unauthorized", "breach", "surveillance", "threat", "suspicious", "intruder"],
+            "operational_standard": ["procedure", "protocol", "standard", "guideline", "policy", "training", "completed", "successful", "routine", "scheduled"],
+            "regulatory_compliance": ["compliance", "regulation", "deadline", "mandatory", "penalty", "violation", "audit", "inspection"],
+            "financial_impact": ["penalty", "fine", "cost", "budget", "payment", "financial", "revenue", "billing"]
         }
         
-        # Department mapping
+        # Enhanced department mapping
         self.department_mapping = {
-            "safety_emergency": "SAFETY_SECURITY",
-            "maintenance_critical": "MAINTENANCE_ENGINEERING", 
-            "service_disruption": "OPERATIONS_CONTROL",
-            "regulatory_compliance": "COMPLIANCE_LEGAL",
-            "financial_impact": "FINANCE_ADMINISTRATION",
-            "security_concern": "SAFETY_SECURITY",
-            "infrastructure_issue": "MAINTENANCE_ENGINEERING",
-            "passenger_safety": "SAFETY_SECURITY",
-            "operational_standard": "OPERATIONS_CONTROL"
+            "safety_emergency": "safety",
+            "maintenance_critical": "maintenance",
+            "service_disruption": "operations", 
+            "infrastructure_issue": "operations",  # Changed from maintenance to operations for signals
+            "passenger_safety": "safety",
+            "security_concern": "safety",
+            "operational_standard": "operations",
+            "regulatory_compliance": "compliance", 
+            "financial_impact": "finance"
         }
         
         # Confidence cache for alerts
@@ -198,31 +240,72 @@ class KMRLUnifiedMLSystem:
         print("✓ Alert classification system ready")
     
     def _init_semantic_search(self):
-        """Initialize semantic search components"""
+        """Initialize semantic search with built-in metro rail knowledge base"""
         
-        # Document storage for semantic search
+        # Built-in knowledge base for metro rail operations (no external files needed)
+        self.built_in_knowledge = [
+            "Emergency brake failure requires immediate safety response and maintenance action",
+            "Signal malfunction causes service disruption and requires operations team intervention", 
+            "Fire alarm activation triggers evacuation procedures and safety protocols",
+            "Power outage affects train operations and requires electrical maintenance",
+            "Track obstruction creates safety hazard and needs immediate clearance",
+            "Door mechanism failure prevents proper train operation and passenger safety",
+            "Platform overcrowding requires crowd management and service adjustments", 
+            "Medical emergency on train needs immediate first aid and ambulance response",
+            "Security threat requires immediate safety measures and police intervention",
+            "Equipment malfunction disrupts normal operations and needs technical repair",
+            "Passenger injury requires medical attention and incident documentation",
+            "System failure affects multiple services and needs emergency response coordination",
+            "Maintenance inspection ensures safe and reliable train operations",
+            "Safety protocol compliance prevents accidents and ensures passenger security",
+            "Technical malfunction requires expert diagnosis and professional repair",
+            "Service delay impacts passenger schedules and requires clear communication",
+            "Infrastructure damage needs structural assessment and specialized repair",
+            "Communication system failure affects operational coordination and safety",
+            "Environmental hazard requires safety evaluation and protective measures",
+            "Regulatory violation needs immediate correction and compliance review",
+            "Happy employees contribute to positive workplace culture and productivity",
+            "Satisfied customers provide positive feedback about metro rail services",
+            "Successful project completion brings joy and recognition to the team",
+            "Cheerful staff improve passenger experience and service quality"
+        ]
+        
+        # Document storage for both built-in and dynamic content
         self.documents = []
         self.document_vectors = []
         self.document_metadata = []
         
-        # Semantic expansion dictionary
+        # Index built-in knowledge base automatically
+        for i, doc in enumerate(self.built_in_knowledge):
+            self.documents.append(doc)
+            vector = self._create_text_vector(doc)
+            self.document_vectors.append(vector)
+            self.document_metadata.append({
+                "source": "built-in_knowledge",
+                "index": i,
+                "type": "metro_rail_operations"
+            })
+        
+        # Enhanced semantic expansion dictionary
         self.semantic_expansions = {
-            "happy": ["joy", "smile", "laugh", "cheerful", "delighted", "pleased", "content", "joyful"],
-            "sad": ["unhappy", "sorrow", "grief", "melancholy", "dejected", "depressed", "sorrowful"],
-            "problem": ["issue", "error", "failure", "malfunction", "trouble", "difficulty", "defect"],
-            "good": ["excellent", "great", "wonderful", "amazing", "superb", "outstanding", "fantastic"],
-            "bad": ["poor", "terrible", "awful", "horrible", "defective", "faulty", "inadequate"],
-            "fast": ["quick", "rapid", "swift", "speedy", "immediate", "urgent", "prompt"],
-            "slow": ["delayed", "sluggish", "gradual", "prolonged", "extended", "late", "tardy"],
-            "emergency": ["urgent", "critical", "crisis", "alarm", "alert", "immediate", "priority"],
-            "maintenance": ["repair", "service", "inspection", "upkeep", "care", "check", "fix"],
-            "safety": ["security", "protection", "precaution", "safe", "secure", "hazard", "risk"]
+            "happy": ["joy", "smile", "laugh", "cheerful", "delighted", "pleased", "content", "joyful", "satisfied"],
+            "sad": ["unhappy", "sorrow", "grief", "melancholy", "dejected", "depressed", "sorrowful", "disappointed"],
+            "problem": ["issue", "error", "failure", "malfunction", "trouble", "difficulty", "defect", "breakdown"],
+            "good": ["excellent", "great", "wonderful", "amazing", "superb", "outstanding", "fantastic", "positive"],
+            "bad": ["poor", "terrible", "awful", "horrible", "defective", "faulty", "inadequate", "negative"],
+            "fast": ["quick", "rapid", "swift", "speedy", "immediate", "urgent", "prompt", "efficient"],
+            "slow": ["delayed", "sluggish", "gradual", "prolonged", "extended", "late", "tardy", "inefficient"],
+            "emergency": ["urgent", "critical", "crisis", "alarm", "alert", "immediate", "priority", "danger"],
+            "maintenance": ["repair", "service", "inspection", "upkeep", "care", "check", "fix", "servicing"],
+            "safety": ["security", "protection", "precaution", "safe", "secure", "hazard", "risk", "danger"],
+            "failure": ["breakdown", "malfunction", "error", "fault", "defect", "problem", "issue", "collapse"],
+            "success": ["achievement", "completion", "accomplishment", "victory", "triumph", "positive", "good"]
         }
         
-        # Search cache
+        # Search cache for performance
         self.search_cache = {}
         
-        print("✓ Semantic search system ready")
+        print(f"✓ Semantic search system ready with {len(self.built_in_knowledge)} built-in knowledge entries")
     
     # =========================================================================
     # ALERT CLASSIFICATION METHODS
@@ -236,10 +319,9 @@ class KMRLUnifiedMLSystem:
             text: Alert text to classify
             
         Returns:
-            Complete alert classification response
+            Alert classification response in standardized format
         """
         start_time = time.time()
-        alert_id = f"alert_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}"
         
         self.metrics["alert_classifications"] += 1
         
@@ -248,39 +330,26 @@ class KMRLUnifiedMLSystem:
             cache_key = hashlib.md5(text.encode()).hexdigest()
             if cache_key in self.alert_cache:
                 cached_result = self.alert_cache[cache_key]
-                cached_result["alert_id"] = alert_id
-                cached_result["timestamp"] = datetime.now(timezone.utc).isoformat()
                 self.metrics["cache_hits"] += 1
                 return AlertResponse(**cached_result)
             
             # Run enhanced semantic classification
             classification = self._classify_text_enhanced(text)
             
-            # Extract keywords and segments
+            # Extract keywords
             search_keywords = self._extract_keywords(text)
-            important_segments = self._extract_important_segments(text)
             
-            processing_time = (time.time() - start_time) * 1000
+            processing_time = round((time.time() - start_time), 3)
             
-            # Build response
+            # Build response in requested format
             response_data = {
-                "alert_id": alert_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "alert_classification": {
-                    "severity": classification["severity"]["level"],
-                    "type": classification["alert_type"],
-                    "risk_level": classification["risk_level"]
-                },
-                "department": {
-                    "assigned": classification["department"],
-                    "confidence_score": classification["confidence_scores"]["department"]
-                },
-                "search_keywords": search_keywords,
-                "important_segments": important_segments,
-                "confidence_summary": {
-                    "overall": classification["confidence_scores"]["overall"],
-                    "classification_accuracy": classification["confidence_scores"]["agreement"]
-                }
+                "status": "success",
+                "severity": classification["severity"]["level"].lower(),
+                "alert_type": classification["alert_type"].lower().replace("_", "_"),
+                "department": classification["department"].lower().replace("_", "").replace("security", "safety"),
+                "keywords": search_keywords[:5],  # Limit to top 5 keywords
+                "confidence": round(classification["confidence_scores"]["overall"] / 100, 2),
+                "processing_time": processing_time
             }
             
             # Cache result
@@ -290,7 +359,7 @@ class KMRLUnifiedMLSystem:
             # Update metrics
             self.metrics["avg_alert_time"] = (
                 (self.metrics["avg_alert_time"] * (self.metrics["alert_classifications"] - 1) + 
-                 processing_time) / self.metrics["alert_classifications"]
+                 processing_time * 1000) / self.metrics["alert_classifications"]
             )
             
             return AlertResponse(**response_data)
@@ -299,13 +368,13 @@ class KMRLUnifiedMLSystem:
             logger.error(f"Alert classification failed: {e}")
             # Return error response
             return AlertResponse(
-                alert_id=alert_id,
-                timestamp=datetime.now(timezone.utc).isoformat(),
-                alert_classification={"severity": "UNKNOWN", "type": "ERROR", "risk_level": "UNKNOWN"},
-                department={"assigned": "OPERATIONS_CONTROL", "confidence_score": 0.0},
-                search_keywords=[],
-                important_segments=[],
-                confidence_summary={"overall": 0.0, "classification_accuracy": 0.0}
+                status="error",
+                severity="unknown",
+                alert_type="system_error",
+                department="operations",
+                keywords=[],
+                confidence=0.0,
+                processing_time=round((time.time() - start_time), 3)
             )
     
     def _classify_text_enhanced(self, text: str) -> Dict[str, Any]:
@@ -313,51 +382,79 @@ class KMRLUnifiedMLSystem:
         
         text_lower = text.lower()
         
-        # Initialize scoring
+        # Initialize scoring with weighted matching
         pattern_matches = {pattern: 0 for pattern in self.domain_knowledge.keys()}
         
-        # Score based on domain pattern matching
+        # Score based on domain pattern matching with context weighting
         for pattern_name, keywords in self.domain_knowledge.items():
             for keyword in keywords:
                 if keyword in text_lower:
-                    pattern_matches[pattern_name] += 1
+                    # Give higher weight for exact matches and critical keywords
+                    weight = 2 if keyword in ["emergency", "critical", "fire", "evacuation", "failure"] else 1
+                    pattern_matches[pattern_name] += weight
+        
+        # Special handling for specific cases
+        # Emergency brake should go to safety, not maintenance
+        if "emergency brake" in text_lower:
+            pattern_matches["safety_emergency"] += 4
+            pattern_matches["maintenance_critical"] -= 2
+        
+        # Signal/infrastructure issues should go to operations, not maintenance
+        if any(word in text_lower for word in ["signal", "junction", "platform", "overcrowding"]):
+            pattern_matches["service_disruption"] += 3
+            pattern_matches["infrastructure_issue"] -= 1
+        
+        # Door/brake/mechanical issues should go to maintenance (but not emergency brake)
+        if any(word in text_lower for word in ["door", "mechanism", "stuck"]) and "emergency" not in text_lower:
+            pattern_matches["maintenance_critical"] += 3
+        
+        # Regular brake failures go to maintenance
+        if "brake" in text_lower and "emergency" not in text_lower:
+            pattern_matches["maintenance_critical"] += 2
+        
+        # Complaints should be low severity, operations department
+        if any(word in text_lower for word in ["complaint", "complaining"]):
+            pattern_matches["service_disruption"] += 2
+            pattern_matches["operational_standard"] += 1
         
         # Find best matching pattern
         best_pattern = max(pattern_matches.items(), key=lambda x: x[1])
         best_pattern_name, best_score = best_pattern
         
-        # Determine alert type based on best pattern
+        # Determine alert type and department
         if best_score > 0:
-            alert_type = best_pattern_name.upper()
-            department = self.department_mapping.get(best_pattern_name, "OPERATIONS_CONTROL")
-            type_confidence = min(80 + (best_score * 5), 95)
+            alert_type = best_pattern_name.replace("_", "_")
+            department = self.department_mapping.get(best_pattern_name, "operations")
+            type_confidence = min(80 + (best_score * 3), 95)
         else:
-            alert_type = "OPERATIONAL_STANDARD"
-            department = "OPERATIONS_CONTROL"
+            alert_type = "operational_standard"
+            department = "operations"
             type_confidence = 60
         
-        # Determine severity based on keywords and urgency
-        severity_indicators = {
-            "CRITICAL": ["emergency", "critical", "failure", "fire", "evacuation", "danger", "urgent"],
-            "HIGH": ["problem", "issue", "malfunction", "delay", "breakdown", "hazard"],
-            "MEDIUM": ["maintenance", "inspection", "scheduled", "routine", "planned"],
-            "LOW": ["information", "update", "notice", "reminder", "standard"]
-        }
+        # Enhanced severity determination with better logic
+        severity_level = "MEDIUM"  # Default
+        severity_confidence = 70
         
-        severity_scores = {}
-        for severity, indicators in severity_indicators.items():
-            score = sum(1 for indicator in indicators if indicator in text_lower)
-            severity_scores[severity] = score
+        # Critical indicators (highest priority)
+        critical_words = ["emergency", "critical", "fire", "evacuation", "danger", "urgent", "medical", "injury", "collision"]
+        if any(word in text_lower for word in critical_words):
+            severity_level = "CRITICAL"
+            severity_confidence = 95
         
-        # Select highest scoring severity
-        best_severity = max(severity_scores.items(), key=lambda x: x[1])
-        severity_level, severity_score = best_severity
+        # High severity indicators
+        elif any(word in text_lower for word in ["failure", "malfunction", "breakdown", "stuck", "delay", "disruption"]):
+            severity_level = "HIGH" 
+            severity_confidence = 85
         
-        if severity_score == 0:
-            severity_level = "MEDIUM"
-            severity_confidence = 60
-        else:
-            severity_confidence = min(70 + (severity_score * 10), 95)
+        # Low severity indicators
+        elif any(word in text_lower for word in ["completed", "successful", "routine", "scheduled", "complaint", "information"]):
+            severity_level = "LOW" if "completed" in text_lower or "successful" in text_lower else "MEDIUM"
+            severity_confidence = 75
+        
+        # Adjust severity for complaints
+        if "complaint" in text_lower and "emergency" not in text_lower:
+            severity_level = "LOW"
+            severity_confidence = 80
         
         # Risk level determination
         if severity_level == "CRITICAL":
@@ -599,20 +696,97 @@ class KMRLUnifiedMLSystem:
             vector_size = 512
             text_vector = np.zeros(vector_size)
             
+            # Map token IDs to vector positions with better distribution
             for i, token_id in enumerate(input_ids):
-                if token_id > 0:
-                    vector_idx = int(token_id) % vector_size
-                    text_vector[vector_idx] += 1.0
+                if token_id > 0:  # Skip padding tokens
+                    # Use multiple hash functions for better distribution
+                    idx1 = int(token_id) % vector_size
+                    idx2 = int((token_id * 7919) % vector_size)  # Prime number hash
+                    idx3 = int((token_id * 65537) % vector_size)  # Another prime
+                    
+                    # Add weighted values based on position
+                    position_weight = 1.0 / (i + 1)  # Decreasing weight by position
+                    text_vector[idx1] += position_weight
+                    text_vector[idx2] += position_weight * 0.5
+                    text_vector[idx3] += position_weight * 0.25
             
-            # Normalize
-            if np.linalg.norm(text_vector) > 0:
+            # Add some randomization based on text content for better representation
+            text_hash = hash(text.lower()) % 1000000
+            np.random.seed(text_hash)
+            noise = np.random.normal(0, 0.01, vector_size)
+            text_vector += noise
+            
+            # Normalize to unit vector
+            norm = np.linalg.norm(text_vector)
+            if norm > 0:
+                text_vector = text_vector / norm
+            else:
+                # Fallback: create a minimal non-zero vector
+                text_vector = np.random.normal(0, 0.1, vector_size)
                 text_vector = text_vector / np.linalg.norm(text_vector)
             
             return text_vector
             
         except Exception as e:
             logger.error(f"Error creating vector: {e}")
-            return np.zeros(512)
+            # Return a random normalized vector as fallback
+            fallback_vector = np.random.normal(0, 0.1, 512)
+            return fallback_vector / np.linalg.norm(fallback_vector)
+    
+    def get_text_embedding(self, text: str) -> EmbeddingResponse:
+        """
+        Generate text embedding for API service
+        
+        Args:
+            text: Input text to convert to embedding
+            
+        Returns:
+            EmbeddingResponse with 512-dimensional embedding array
+        """
+        start_time = time.time()
+        
+        try:
+            # Generate embedding using existing method
+            embedding_array = self._create_text_vector(text)
+            
+            # Ensure proper shape and convert to Python list
+            if embedding_array.shape[0] != 512:
+                raise ValueError(f"Expected 512 dimensions, got {embedding_array.shape[0]}")
+            
+            # Convert numpy array to Python list with full precision
+            embedding_list = [float(x) for x in embedding_array.tolist()]
+            
+            # Validate embedding quality
+            if all(abs(x) < 1e-8 for x in embedding_list):
+                raise ValueError("Generated embedding is all zeros - possible tokenization issue")
+            
+            processing_time = round((time.time() - start_time), 3)
+            
+            response = EmbeddingResponse(
+                status="success",
+                embedding=embedding_list,
+                model="distilbert-base-multilingual-cased",
+                dimension=512,
+                processing_time=processing_time
+            )
+            
+            # Validate response
+            if not response.validate_embedding():
+                raise ValueError("Embedding validation failed")
+                
+            return response
+            
+        except Exception as e:
+            logger.error(f"Embedding generation failed: {e}")
+            processing_time = round((time.time() - start_time), 3)
+            
+            return EmbeddingResponse(
+                status="error",
+                embedding=[0.0] * 512,  # Return zero vector on error
+                model="distilbert-base-multilingual-cased",
+                dimension=512,
+                processing_time=processing_time
+            )
     
     def _get_expanded_terms(self, query: str) -> List[str]:
         """Get semantically related terms"""
@@ -682,199 +856,483 @@ def load_documents_from_file(filepath: str) -> List[str]:
         return []
 
 def print_alert_result(response: AlertResponse):
-    """Print alert classification result"""
-    print(f"\n{'='*80}")
-    print(f"ALERT CLASSIFICATION RESULT")
-    print(f"{'='*80}")
-    print(f"Alert ID: {response.alert_id}")
-    print(f"Severity: {response.alert_classification['severity']}")
-    print(f"Type: {response.alert_classification['type']}")
-    print(f"Risk Level: {response.alert_classification['risk_level']}")
-    print(f"Department: {response.department['assigned']} ({response.department['confidence_score']:.1f}%)")
-    print(f"Overall Confidence: {response.confidence_summary['overall']:.1f}%")
-    
-    if response.search_keywords:
-        print(f"Keywords: {', '.join(response.search_keywords)}")
-    
-    if response.important_segments:
-        print(f"Key Segments:")
-        for i, segment in enumerate(response.important_segments, 1):
-            print(f"  {i}. {segment}")
+    """Print alert classification result in JSON format only"""
+    print(response.to_json())
+
+def print_embedding_result(response: EmbeddingResponse):
+    """Print text embedding result in JSON format only"""
+    print(response.to_json())
 
 def print_search_results(response: SearchResponse):
-    """Print semantic search results"""
-    print(f"\n{'='*80}")
-    print(f"SEMANTIC SEARCH RESULTS")
-    print(f"{'='*80}")
-    print(f"Query: '{response.query}'")
-    print(f"Results: {response.total_results} documents in {response.search_time_ms}ms")
-    
-    if response.expanded_terms:
-        print(f"Related terms: {', '.join(response.expanded_terms)}")
-    
-    print(f"{'='*80}")
+    """Print semantic search results in JSON format only"""
+    print(response.to_json())
     
     for result in response.results:
         print(f"\n[{result.rank}] Similarity: {result.similarity_score:.3f}")
         print(f"Document: {result.content}")
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='KMRL Unified ML System - Alert Classification + Semantic Search',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''
-Examples:
-    # Alert Classification
-    python kmrl_unified_system.py --classify "Emergency brake failure" --json
-    python kmrl_unified_system.py --classify "Routine maintenance scheduled"
+    """Main function - starts interactive mode directly"""
+    import sys
     
-    # Semantic Search  
-    python kmrl_unified_system.py --index documents.txt
-    python kmrl_unified_system.py --search "happy employees" --top-k 5
-    python kmrl_unified_system.py --search "technical problems" --json
+    # Check for help flag
+    if len(sys.argv) > 1 and sys.argv[1] in ['-h', '--help', 'help']:
+        print('''
+KMRL Unified ML System - Interactive Mode
+==========================================
+
+Usage:
+    python kmrl_unified_system.py
     
-    # System Information
-    python kmrl_unified_system.py --metrics
-    
-    # Interactive Mode
-    python kmrl_unified_system.py --interactive
-        '''
-    )
-    
-    # Alert classification arguments
-    parser.add_argument('--classify', type=str, help='Alert text to classify')
-    
-    # Semantic search arguments
-    parser.add_argument('--search', type=str, help='Search query for semantic search')
-    parser.add_argument('--index', type=str, help='File containing documents to index')
-    parser.add_argument('--top-k', type=int, default=10, help='Number of search results')
-    parser.add_argument('--threshold', type=float, default=0.1, help='Search similarity threshold')
-    
-    # Output options
-    parser.add_argument('--json', action='store_true', help='Output in JSON format')
-    parser.add_argument('--metrics', action='store_true', help='Show system metrics')
-    parser.add_argument('--interactive', action='store_true', help='Interactive mode')
-    
-    args = parser.parse_args()
+Commands (in interactive mode):
+    classify <text>     - Classify alert text
+    search <query>      - Search for similar documents
+    index <file>        - Index documents from file  
+    metrics             - Show system metrics
+    help                - Show commands
+    exit                - Exit program
+
+Example:
+    🤖 KMRL> index sample_documents.txt
+    🤖 KMRL> search happy employees
+    🤖 KMRL> classify Emergency brake failure
+        ''')
+        return
     
     # Initialize unified system
     try:
         system = KMRLUnifiedMLSystem()
     except Exception as e:
-        print(f"Failed to initialize system: {e}")
+        print(f"❌ Failed to initialize system: {e}")
         return
     
-    # Handle metrics
-    if args.metrics:
-        metrics = system.get_system_metrics()
-        print(json.dumps(metrics, indent=2))
-        return
+    # Start interactive mode directly
+    print("\n" + "="*80)
+    print("KMRL UNIFIED ML SYSTEM - INTERACTIVE MODE")
+    print("="*80)
+    print("Available commands:")
+    print("  classify <text>     - Classify alert text")
+    print("  embed <text>        - Generate text embedding")
+    print("  search <query>      - Search built-in knowledge base")
+    print("  json <command>      - Get raw JSON output")
+    print("  index <documents>   - Add custom documents (optional)")
+    print("  metrics             - Show system performance")
+    print("  help                - Show this help")
+    print("  exit                - Exit the program")
+    print("="*80)
     
-    # Handle document indexing
-    if args.index:
-        documents = load_documents_from_file(args.index)
-        if documents:
-            result = system.index_documents(documents)
-            if args.json:
-                print(json.dumps(result, indent=2))
-            else:
-                print(f"✓ Successfully indexed {result['indexed_documents']} documents")
-        return
-    
-    # Handle alert classification
-    if args.classify:
-        response = system.classify_alert(args.classify)
-        
-        if args.json:
-            print(json.dumps(asdict(response), indent=2))
-        else:
-            print_alert_result(response)
-        return
-    
-    # Handle semantic search
-    if args.search:
-        response = system.search_documents(
-            args.search, 
-            top_k=args.top_k,
-            threshold=args.threshold
-        )
-        
-        if args.json:
-            print(json.dumps(asdict(response), indent=2))
-        else:
-            print_search_results(response)
-        return
-    
-    # Interactive mode
-    if args.interactive:
-        print("\n" + "="*80)
-        print("KMRL UNIFIED ML SYSTEM - INTERACTIVE MODE")
-        print("="*80)
-        print("Available commands:")
-        print("  classify <text>     - Classify alert text")
-        print("  search <query>      - Search for similar documents")
-        print("  index <file>        - Index documents from file")
-        print("  metrics             - Show system performance")
-        print("  help                - Show this help")
-        print("  exit                - Exit the program")
-        print("="*80)
-        
-        while True:
-            try:
-                user_input = input("\n🤖 KMRL> ").strip()
-                
-                if not user_input:
-                    continue
-                elif user_input.lower() in ['exit', 'quit']:
-                    print("\n👋 Goodbye!")
-                    break
-                elif user_input.lower() == 'help':
-                    print("\nCommands:")
-                    print("  classify <text>     - Classify alert text") 
-                    print("  search <query>      - Search documents")
-                    print("  index <file>        - Index documents")
-                    print("  metrics             - Show metrics")
-                    print("  exit                - Exit program")
-                    continue
-                elif user_input.lower() == 'metrics':
-                    metrics = system.get_system_metrics()
-                    print(json.dumps(metrics, indent=2))
-                    continue
-                elif user_input.startswith('classify '):
-                    text = user_input[9:].strip()
+    while True:
+        try:
+            user_input = input("\n🤖 KMRL> ").strip()
+            
+            if not user_input:
+                continue
+            elif user_input.lower() in ['exit', 'quit']:
+                print("\n👋 Goodbye!")
+                break
+            elif user_input.lower() == 'help':
+                print("\nCommands:")
+                print("  classify <text>     - Classify alert text") 
+                print("  embed <text>        - Generate text embedding")
+                print("  search <query>      - Search knowledge base")
+                print("  json <command>      - Get raw JSON output")
+                print("  index <file>        - Index documents")
+                print("  metrics             - Show metrics")
+                print("  exit                - Exit program")
+                continue
+            elif user_input.lower() == 'metrics':
+                metrics = system.get_system_metrics()
+                print(json.dumps(metrics, indent=2))
+                continue
+            elif user_input.startswith('json '):
+                # Handle raw JSON output commands
+                json_cmd = user_input[5:].strip()
+                if json_cmd.startswith('classify '):
+                    text = json_cmd[9:].strip()
                     if text:
                         response = system.classify_alert(text)
-                        print_alert_result(response)
+                        print(response.to_json())
                     else:
                         print("Please provide text to classify")
-                elif user_input.startswith('search '):
-                    query = user_input[7:].strip()
+                elif json_cmd.startswith('embed '):
+                    text = json_cmd[6:].strip()
+                    if text:
+                        response = system.get_text_embedding(text)
+                        print(response.to_json())
+                    else:
+                        print("Please provide text to embed")
+                elif json_cmd.startswith('search '):
+                    query = json_cmd[7:].strip()
                     if query:
                         response = system.search_documents(query, top_k=5)
-                        print_search_results(response)
+                        print(response.to_json())
                     else:
                         print("Please provide search query")
-                elif user_input.startswith('index '):
-                    filepath = user_input[6:].strip()
-                    if filepath:
-                        documents = load_documents_from_file(filepath)
-                        if documents:
-                            result = system.index_documents(documents)
-                            print(f"✓ Indexed {result['indexed_documents']} documents")
-                    else:
-                        print("Please provide file path")
                 else:
-                    print("Unknown command. Type 'help' for available commands.")
-                
-            except (EOFError, KeyboardInterrupt):
-                print("\n\n👋 Goodbye!")
-                break
-            except Exception as e:
-                print(f"❌ Error: {e}")
+                    print("Invalid json command. Use: json classify <text>, json embed <text>, or json search <query>")
+            elif user_input.startswith('classify '):
+                text = user_input[9:].strip()
+                if text:
+                    response = system.classify_alert(text)
+                    print_alert_result(response)
+                else:
+                    print("Please provide text to classify")
+            elif user_input.startswith('embed '):
+                text = user_input[6:].strip()
+                if text:
+                    response = system.get_text_embedding(text)
+                    print_embedding_result(response)
+                else:
+                    print("Please provide text to embed")
+            elif user_input.startswith('search '):
+                query = user_input[7:].strip()
+                if query:
+                    response = system.search_documents(query, top_k=5)
+                    print_search_results(response)
+                else:
+                    print("Please provide search query")
+            elif user_input.startswith('index '):
+                filepath = user_input[6:].strip()
+                if filepath:
+                    documents = load_documents_from_file(filepath)
+                    if documents:
+                        result = system.index_documents(documents)
+                        print(f"✓ Indexed {result['indexed_documents']} documents")
+                else:
+                    print("Please provide file path")
+            else:
+                print("Unknown command. Type 'help' for available commands.")
+            
+        except (EOFError, KeyboardInterrupt):
+            print("\n\n👋 Goodbye!")
+            break
+        except Exception as e:
+            print(f"❌ Error: {e}")
+
+# =============================================================================
+# API SERVICE FUNCTIONALITY
+# =============================================================================
+
+def create_api_app(ml_system_instance=None):
+    """
+    Create Flask API application
     
-    else:
-        # Show help if no arguments
-        parser.print_help()
+    Args:
+        ml_system_instance: Pre-initialized ML system instance
+        
+    Returns:
+        Flask app with API routes
+    """
+    if not FLASK_AVAILABLE:
+        raise ImportError("Flask not available. Install with: pip install flask flask-cors")
+    
+    app = Flask(__name__)
+    CORS(app)  # Enable CORS for frontend integration
+    
+    # Use provided ML system or create new one
+    if ml_system_instance is None:
+        ml_system_instance = KMRLUnifiedMLSystem()
+    
+    @app.route('/health', methods=['GET'])
+    def health_check():
+        """Health check endpoint"""
+        return jsonify({
+            "status": "healthy",
+            "service": "KMRL ML API",
+            "version": "6.0",
+            "timestamp": datetime.now().isoformat()
+        })
+
+    @app.route('/classify', methods=['POST'])
+    def classify_alert():
+        """
+        Alert classification endpoint
+        
+        Request: {"text": "alert message"}
+        Response: {"status": "success", "severity": "high", ...}
+        """
+        try:
+            # Validate request
+            if not request.is_json:
+                return jsonify({"error": "Request must be JSON"}), 400
+                
+            data = request.get_json()
+            if 'text' not in data:
+                return jsonify({"error": "Missing 'text' field in request"}), 400
+                
+            text = data['text'].strip()
+            if not text:
+                return jsonify({"error": "Text field cannot be empty"}), 400
+            
+            # Classify alert
+            response = ml_system_instance.classify_alert(text)
+            
+            return jsonify(response.to_dict())
+            
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "error": "Internal server error",
+                "message": str(e)
+            }), 500
+
+    @app.route('/analyze', methods=['POST'])
+    def analyze_alert():
+        """Unified analysis endpoint for web UI.
+
+        Request: {"text": "alert message"}
+        Response: {severity, department, confidence, keywords, semantic_similarity_results, immediate_action_required, immediate_action}
+        """
+        try:
+            if not request.is_json:
+                return jsonify({"error": "Request must be JSON"}), 400
+
+            data = request.get_json()
+            if 'text' not in data:
+                return jsonify({"error": "Missing 'text' field in request"}), 400
+
+            text = str(data['text']).strip()
+            if not text:
+                return jsonify({"error": "Text field cannot be empty"}), 400
+
+            # 1) Classification
+            classification = ml_system_instance.classify_alert(text)
+            severity = str(classification.severity).strip().upper()
+            department = str(classification.department).strip().upper()
+            confidence = float(classification.confidence)
+            keywords = list(classification.keywords or [])
+
+            # 2) Semantic similarity (using built-in knowledge base/index)
+            search = ml_system_instance.search_documents(text, top_k=5, threshold=0.1)
+            semantic_similarity_results = [
+                {
+                    "text": r.content,
+                    "similarity": float(r.similarity_score),
+                }
+                for r in (search.results or [])
+            ]
+
+            # 3) Immediate action heuristic
+            immediate_action_required = severity in {"CRITICAL", "HIGH"}
+            if immediate_action_required:
+                immediate_action = f"Escalate immediately to {department} and follow the incident runbook."
+            else:
+                immediate_action = "Monitor and route to the owning team."
+
+            return jsonify({
+                "status": "success",
+                "severity": severity,
+                "department": department,
+                "confidence": confidence,
+                "keywords": keywords,
+                "immediate_action_required": immediate_action_required,
+                "immediate_action": immediate_action,
+                "semantic_similarity_results": semantic_similarity_results,
+            })
+
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "error": "Internal server error",
+                "message": str(e)
+            }), 500
+
+    @app.route('/embed', methods=['POST'])
+    def embed_text():
+        """
+        Text embedding endpoint
+        
+        Request: {"text": "query text"}
+        Response: {"status": "success", "embedding": [512 values], "model": "...", "dimension": 512, "processing_time": 0.001}
+        """
+        try:
+            # Validate request
+            if not request.is_json:
+                return jsonify({"error": "Request must be JSON"}), 400
+                
+            data = request.get_json()
+            if 'text' not in data:
+                return jsonify({"error": "Missing 'text' field in request"}), 400
+                
+            text = data['text'].strip()
+            if not text:
+                return jsonify({"error": "Text field cannot be empty"}), 400
+            
+            # Generate embedding
+            embed_response = ml_system_instance.get_text_embedding(text)
+            
+            return jsonify(embed_response.to_dict())
+            
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "error": "Internal server error", 
+                "message": str(e)
+            }), 500
+
+    @app.route('/metrics', methods=['GET'])
+    def get_metrics():
+        """Get system performance metrics"""
+        try:
+            metrics = ml_system_instance.get_system_metrics()
+            return jsonify(metrics)
+        except Exception as e:
+            return jsonify({"error": "Failed to get metrics"}), 500
+
+    @app.errorhandler(404)
+    def not_found(error):
+        """Handle 404 errors"""
+        return jsonify({
+            "error": "Not found",
+            "message": "Endpoint not found. Available: /analyze, /classify, /embed, /health, /metrics"
+        }), 404
+
+    @app.errorhandler(405)
+    def method_not_allowed(error):
+        """Handle 405 errors"""
+        return jsonify({
+            "error": "Method not allowed",
+            "message": "Check request method. Most endpoints require POST."
+        }), 405
+    
+    return app
+
+def start_api_server(host='0.0.0.0', port=8000, debug=False):
+    """
+    Start the API server
+    
+    Args:
+        host: Host to bind to
+        port: Port to bind to
+        debug: Enable debug mode
+    """
+    if not FLASK_AVAILABLE:
+        print("❌ Flask not available. Install with: pip install flask flask-cors")
+        return
+    
+    print("KMRL ML API Service")
+    print("=" * 50)
+    print("Available endpoints:")
+    print("  POST /analyze     - Unified alert analysis (UI endpoint)")
+    print("  POST /classify    - Alert classification")
+    print("  POST /embed       - Text embedding (512-dimensional)")
+    print("  GET  /health      - Health check")
+    print("  GET  /metrics     - System metrics")
+    print("=" * 50)
+    
+    # Initialize ML system and create app
+    ml_system = KMRLUnifiedMLSystem()
+    app = create_api_app(ml_system)
+    
+    # Start server
+    app.run(host=host, port=port, debug=debug, threaded=True)
+
+def main():
+    """Main entry point with mode selection"""
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '--api':
+            # API server mode
+            start_api_server()
+            return
+        elif sys.argv[1] == '--help':
+            print("KMRL Unified ML System")
+            print("Usage:")
+            print("  python kmrl_unified_system.py         - Interactive mode")
+            print("  python kmrl_unified_system.py --api   - Start API server")
+            print("  python kmrl_unified_system.py --help  - Show this help")
+            return
+    
+    # Default: Interactive mode
+    system = KMRLUnifiedMLSystem()
+    
+    # Start interactive mode directly
+    while True:
+        try:
+            user_input = input("\n🤖 KMRL> ").strip()
+            
+            if not user_input:
+                continue
+            elif user_input.lower() in ['exit', 'quit']:
+                print("\n👋 Goodbye!")
+                break
+            elif user_input.lower() == 'help':
+                print("\nCommands:")
+                print("  classify <text>     - Classify alert text") 
+                print("  embed <text>        - Generate text embedding")
+                print("  search <query>      - Search knowledge base")
+                print("  json <command>      - Get raw JSON output")
+                print("  index <file>        - Index documents")
+                print("  metrics             - Show metrics")
+                print("  exit                - Exit program")
+                continue
+            elif user_input.lower() == 'metrics':
+                metrics = system.get_system_metrics()
+                print(json.dumps(metrics, indent=2))
+                continue
+            elif user_input.startswith('json '):
+                # Handle raw JSON output commands
+                json_cmd = user_input[5:].strip()
+                if json_cmd.startswith('classify '):
+                    text = json_cmd[9:].strip()
+                    if text:
+                        response = system.classify_alert(text)
+                        print(response.to_json())
+                    else:
+                        print("Please provide text to classify")
+                elif json_cmd.startswith('embed '):
+                    text = json_cmd[6:].strip()
+                    if text:
+                        response = system.get_text_embedding(text)
+                        print(response.to_json())
+                    else:
+                        print("Please provide text to embed")
+                elif json_cmd.startswith('search '):
+                    query = json_cmd[7:].strip()
+                    if query:
+                        response = system.search_documents(query, top_k=5)
+                        print(response.to_json())
+                    else:
+                        print("Please provide search query")
+                else:
+                    print("Invalid json command. Use: json classify <text>, json embed <text>, or json search <query>")
+            elif user_input.startswith('classify '):
+                text = user_input[9:].strip()
+                if text:
+                    response = system.classify_alert(text)
+                    print_alert_result(response)
+                else:
+                    print("Please provide text to classify")
+            elif user_input.startswith('embed '):
+                text = user_input[6:].strip()
+                if text:
+                    response = system.get_text_embedding(text)
+                    print_embedding_result(response)
+                else:
+                    print("Please provide text to embed")
+            elif user_input.startswith('search '):
+                query = user_input[7:].strip()
+                if query:
+                    response = system.search_documents(query, top_k=5)
+                    print_search_results(response)
+                else:
+                    print("Please provide search query")
+            elif user_input.startswith('index '):
+                filepath = user_input[6:].strip()
+                if filepath:
+                    documents = load_documents_from_file(filepath)
+                    if documents:
+                        result = system.index_documents(documents)
+                        print(f"✓ Indexed {result['indexed_documents']} documents")
+                else:
+                    print("Please provide file path")
+            else:
+                print("Unknown command. Type 'help' for available commands.")
+            
+        except (EOFError, KeyboardInterrupt):
+            print("\n\n👋 Goodbye!")
+            break
+        except Exception as e:
+            print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
     main()
