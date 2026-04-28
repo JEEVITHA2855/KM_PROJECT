@@ -1,194 +1,217 @@
 # KMRL Alert Analysis System
 
-![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-ML-orange.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
+A machine learning–based system for analyzing operational alerts, classifying severity, routing incidents to the appropriate department, and identifying semantically similar cases. The system is designed for fast triage, consistent decision-making, and integration into operational workflows.
 
-Operational alert analysis tools for classifying incident text, routing alerts to the right department, and finding semantically similar cases. The repository contains two runnable analyzers:
-
-- [analyzer.py](analyzer.py) for the scikit-learn + TF-IDF workflow
-- [kmrl_analyzer.py](kmrl_analyzer.py) for the transformer-based workflow
+---
 
 ## Overview
 
-The project turns free-form operational alerts into structured, actionable output. It is designed for teams that need faster triage, more consistent routing, and lightweight semantic search without introducing a heavy web application stack.
+The KMRL Alert Analysis System transforms unstructured alert text into structured, actionable outputs. It enables teams to automate alert classification, reduce manual triage effort, and improve response time by providing consistent severity predictions, department routing, and contextual insights.
+
+---
 
 ## Problem Statement
 
-Operational teams often receive short, inconsistent, or duplicated incident messages. Manual triage takes time, and keyword-only filtering misses related alerts that use different wording.
+Operational systems generate large volumes of alerts that are:
+
+* Unstructured and inconsistent
+* Difficult to categorize quickly
+* Often duplicated or semantically similar
+
+Manual triage leads to delays, inconsistent decisions, and missed correlations between related alerts.
+
+---
 
 ## Solution
 
-The analyzers convert alert text into machine-readable signals, classify severity and department, extract keywords, and support similarity search. This produces a consistent output format that is easier to review, automate, and integrate into downstream workflows.
+This system provides a lightweight analysis pipeline where:
 
-## Features
+* Alert text is processed and normalized
+* Machine learning models classify severity and department
+* Semantic similarity identifies related incidents
+* Keywords are extracted for quick understanding
+* Results are returned in structured JSON format for automation
 
-- Severity classification: CRITICAL, HIGH, MEDIUM, LOW
-- Department routing: SAFETY, OPERATIONS, MAINTENANCE, FINANCE, HR, LEGAL, PROCUREMENT, ELECTRICAL
-- Semantic search across previously seen alerts
-- Keyword extraction for compact summaries
-- Single-alert, file-based, batch, and interactive CLI modes
-- JSON output for scripts and automation
+---
+
+## Key Features
+
+* Severity classification (CRITICAL, HIGH, MEDIUM, LOW)
+* Department routing (SAFETY, OPERATIONS, MAINTENANCE, etc.)
+* Semantic similarity search across alerts
+* Keyword extraction for summarization
+* Multiple execution modes (CLI, batch, interactive)
+* JSON output for integration with external systems
+
+---
 
 ## Tech Stack
 
-- Frontend: None; command-line interface
-- Runtime: Python 3.8+
-- Core libraries: argparse, logging, json, pathlib
-- ML / NLP: scikit-learn, TF-IDF, Multinomial Naive Bayes, transformers, sentence-transformers, PyTorch, NumPy, SciPy, tqdm
-- Storage: In-memory during execution
+* Python 3.8+
+* scikit-learn (TF-IDF, Naive Bayes)
+* transformers, sentence-transformers
+* PyTorch
+* NumPy, SciPy
+* argparse, logging, json
 
-## Architecture / Flow
+---
 
-1. A user submits alert text through the CLI, a file, or interactive mode.
-2. The analyzer normalizes the text and converts it into numeric features or embeddings.
-3. The model predicts severity and department, then computes confidence scores.
-4. The system extracts keywords or similarity matches to add context.
-5. The CLI prints a readable report or JSON payload for downstream use.
+## System Architecture
+
+```text id="9yx0k3"
+Input (CLI / File / Interactive)
+        ↓
+Text Preprocessing
+        ↓
+Feature Extraction (TF-IDF / Embeddings)
+        ↓
+Classification (Severity + Department)
+        ↓
+Semantic Similarity Search
+        ↓
+Keyword Extraction
+        ↓
+Structured Output (JSON / CLI Report)
+```
+
+---
+
+## Model Approaches
+
+The system supports two analysis pipelines:
+
+### 1. TF-IDF + Naive Bayes
+
+* Lightweight and fast
+* Suitable for real-time classification
+* Lower computational cost
+
+### 2. Transformer-Based Pipeline
+
+* Uses sentence embeddings
+* Better semantic understanding
+* Higher accuracy for complex alerts
+
+---
+
+## Example Workflow
+
+* User inputs alert text
+* System preprocesses and extracts features
+* Model predicts severity and department
+* Similar alerts are retrieved
+* Keywords are extracted
+* Output is displayed or returned as JSON
+
+---
+
+## Example Output
+
+```json id="z6n1qp"
+{
+  "alert_id": "KMRL_20251202_153842",
+  "text": "Emergency brake failure",
+  "severity": "CRITICAL",
+  "department": "SAFETY",
+  "priority": "P1_CRITICAL",
+  "response_time": "5 minutes",
+  "keywords": ["brake", "failure", "emergency"],
+  "immediate_action": true
+}
+```
+
+---
 
 ## Setup Instructions
 
 ### Prerequisites
 
-- Python 3.8 or later
-- `pip`
-- Internet access on first run if model weights need to be downloaded
+* Python 3.8+
+* pip
 
 ### Installation
 
-1. Clone the repository.
-2. Open a terminal in the `KM_PROJECT` folder.
-3. Install dependencies:
-
-```bash
+```bash id="q9k4fm"
+git clone https://github.com/JEEVITHA2855/KMRL-Alert-Analysis-System.git
+cd KM_PROJECT
 python -m pip install -r requirements.txt
 ```
 
-4. Run the default analyzer:
+---
 
-```bash
-python analyzer.py --text "Emergency brake failure"
-```
-
-5. Optional: run the alternate transformer-based analyzer:
-
-```bash
-python kmrl_analyzer.py --text "Emergency brake failure"
-```
-
-## Environment Variables
-
-Important optional variables used by the project:
-
-```bash
-KMRL_FAST_MODE=true
-CUDA_VISIBLE_DEVICES=
-```
-
-- `KMRL_FAST_MODE=true` enables faster, lighter transformer settings in [kmrl_analyzer.py](kmrl_analyzer.py)
-- `CUDA_VISIBLE_DEVICES=` forces CPU-only execution when needed
-
-## Commands
+## Usage
 
 ### Analyze a Single Alert
 
-```bash
+```bash id="zps2lu"
 python analyzer.py --text "Emergency brake failure"
 ```
 
 ### JSON Output
 
-```bash
+```bash id="y4mjv3"
 python analyzer.py --text "Emergency brake failure" --json
 ```
 
 ### Semantic Search
 
-```bash
+```bash id="a6lp7r"
 python analyzer.py --search "fire danger"
 ```
 
 ### Interactive Mode
 
-```bash
+```bash id="2o0n1w"
 python analyzer.py -i
 ```
 
 ### Batch Processing
 
-```bash
+```bash id="7b7k0n"
 python analyzer.py --batch --file alerts.txt
 ```
 
-### Alternate Analyzer
+---
 
-```bash
-python kmrl_analyzer.py --fast --text "Routine maintenance issue"
-```
+## Engineering Highlights
 
-### Help
+* Designed dual ML pipelines for performance vs accuracy trade-offs
+* Implemented text classification using TF-IDF and Naive Bayes
+* Integrated transformer-based embeddings for semantic similarity
+* Built modular CLI system supporting multiple execution modes
+* Structured outputs for easy integration with external systems
 
-```bash
-python analyzer.py --help
-python kmrl_analyzer.py --help
-```
+---
 
-## Output Example
+## Challenges
 
-### Alert Classification
-```json
-{
-    "alert_id": "KMRL_20251202_153842",
-    "text": "Emergency brake failure",
-    "severity": "CRITICAL",
-    "department": "SAFETY",
-    "priority": "P1_CRITICAL",
-    "response_time": "5 minutes",
-    "overall_confidence": 25.61,
-    "keywords": ["brake", "failure", "emergency"],
-    "immediate_action": true
-}
-```
+* Balancing lightweight models with transformer-based accuracy
+* Managing model loading and performance constraints
+* Ensuring consistent outputs across different execution modes
+* Handling variability in unstructured alert text
 
-## Deployment
-
-This repository is designed for local execution and scripting rather than a hosted web deployment. Typical usage is:
-
-- Local terminal execution for operators and analysts
-- Scheduled or scripted batch runs for alert review
-- Integration into a larger system by importing the analyzer classes directly
-
-## Challenges Faced
-
-- Balancing lightweight TF-IDF classification with a heavier transformer-based implementation
-- Handling model downloads and environment setup on first run
-- Keeping CLI output readable while still supporting JSON automation
+---
 
 ## Future Improvements
 
-- Persist alert history to a database or file store
-- Add a web dashboard for operational teams
-- Introduce role-based workflows for review and escalation
-- Improve model training data and evaluation coverage
-- Add automated tests for CLI modes and output formats
+* Add persistent storage for alert history
+* Build a web-based dashboard for visualization
+* Improve training data and evaluation metrics
+* Add role-based workflows for incident management
+* Introduce real-time alert streaming
 
-## Project Structure
+---
 
-```text
-KM_PROJECT/
-├── analyzer.py
-├── kmrl_analyzer.py
-├── requirements.txt
-└── README.md
-```
+## Resume Impact
 
-## Support
+Developed a machine learning–based alert classification system using TF-IDF, Naive Bayes, and transformer models, enabling automated incident triage, semantic similarity search, and structured output for operational workflows.
 
-If dependencies fail to install or models fail to load, verify your Python version and rerun:
+---
 
-```bash
-python --version
-python -m pip install -r requirements.txt
-```
+## Notes
 
-The main entry point recommended for quick use is [analyzer.py](analyzer.py).
+* Designed for local execution and integration into larger systems
+* Supports both lightweight and transformer-based analysis pipelines
+* Focuses on practical applicability in operational environments
+
+---
