@@ -35,7 +35,7 @@ export default function AlertHistory({ items, severityFilter, onChangeSeverityFi
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-blue-50 dark:bg-slate-900/40 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+         <thead className="bg-slate-800 text-xs uppercase tracking-wide text-slate-200 border-b border-slate-700">
             <tr>
               <th className="px-5 py-3 font-medium">Alert</th>
               <th className="px-5 py-3 font-medium">Severity</th>
