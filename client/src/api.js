@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = "https://alert-classification-system-kmrl.onrender.com";
 
 export const analyzeAlert = async (text) => {
   const res = await fetch(`${BASE_URL}/api/analyze`, {

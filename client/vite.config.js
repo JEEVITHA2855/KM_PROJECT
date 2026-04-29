@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       // Backend runs on http://localhost:8000 when started with `python kmrl_unified_system.py --api`
-      '/analyze': 'http://localhost:8000',
+      '/api/analyze': 'http://localhost:8000',
       '/classify': 'http://localhost:8000',
       '/embed': 'http://localhost:8000',
       '/health': 'http://localhost:8000',

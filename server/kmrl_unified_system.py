@@ -916,7 +916,7 @@ def create_api_app(ml_system_instance=None):
                 "message": str(e)
             }), 500
 
-    @app.route('/analyze', methods=['POST'])
+    @app.route('/api/analyze', methods=['POST'])
     def analyze_alert():
         """Unified analysis endpoint for web UI.
 
