@@ -1,13 +1,17 @@
-import axios from 'axios';
+const BASE_URL = "https://alert-classification-system-kmrl.onrender.com";
 
-const API = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '',
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+export const analyzeAlert = async (text) => {
+  const res = await fetch(`${BASE_URL}/api/analyze`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text }),
+  });
 
-export const analyzeAlert = (text) => {
-  return API.post('/analyze', { text }).then((r) => r.data);
+  if (!res.ok) {
+    throw new Error("API request failed");
+  }
+
+  return res.json();
 };

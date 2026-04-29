@@ -34,7 +34,7 @@ def home():
     return {"status": "API running"}
 
 
-@app.post("/api/api/analyze")
+@app.post("/api/analyze")
 def analyze(req: AlertRequest):
     if not req.text:
         raise HTTPException(status_code=400, detail="Empty input")
