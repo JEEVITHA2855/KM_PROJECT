@@ -1,12 +1,20 @@
 import React from 'react';
-
-export default function Select({ className = '', children, ...props }) {
+export default function Select({ className = "", children, ...props }) {
   return (
     <select
-      className={
-        'rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ' +
-        className
-      }
+      className={`
+        bg-white text-slate-900
+        dark:bg-slate-800 dark:text-white
+        
+        border border-slate-300 dark:border-slate-700
+        rounded-md px-3 py-2 text-sm
+        
+        focus:outline-none focus:ring-2 focus:ring-blue-500
+        
+        cursor-pointer
+        
+        ${className}
+      `}
       {...props}
     >
       {children}

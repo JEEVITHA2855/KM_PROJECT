@@ -16,7 +16,7 @@ const AlertResult = ({ result }) => {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Results</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Structured output from the ML model</p>
+
           </div>
           <div className="flex items-center gap-2">
             <Tag>{department}</Tag>

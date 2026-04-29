@@ -40,9 +40,9 @@ export default function SemanticSearch() {
   return (
     <Card>
       <div className="border-b border-slate-200/70 dark:border-slate-800 px-5 py-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Semantic Search</h3>
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Search Alerts</h3>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Find similar historical alerts by meaning (uses the same `POST /analyze` response’s similarity results).
+          Find similar historical alerts by meaning (uses similarity results from the analysis engine).
         </p>
       </div>
 

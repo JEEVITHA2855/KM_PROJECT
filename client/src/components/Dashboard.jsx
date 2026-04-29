@@ -69,7 +69,7 @@ const Dashboard = () => {
       });
     } catch (e) {
       setAnalysis(null);
-      setAnalysisError('Analysis failed. Ensure the API is running and reachable at POST /analyze.');
+      setAnalysisError('Analysis failed. Ensure the API is running and reachable.');
     } finally {
       setIsAnalyzing(false);
     }
